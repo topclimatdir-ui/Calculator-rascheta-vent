@@ -48,15 +48,22 @@ const FL_OPTS = [['none', 'Без фланца'], ['S20', 'Фланец S20 (ш�
 const flW = fg => (fg === 'S30' ? SET.sw30 : SET.sw20);
 
 function drawFlange(g, s, m, fg) {
-  const w = fg === 'S30' ? 30 : 20, out = grow(s, w), grp = new THREE.Group();
-  put(grp, loft(s, 0, out, 0), { flat: true }); put(grp, tube(out, 0, w), { flat: true });
-  /* уголки (4 шт.) с отверстиями под болты по углам фланца */
+  /* четыре рейки шинорейки (рамка вокруг торца) + четыре уголка с отверстиями по углам */
+  const w = fg === 'S30' ? 30 : 20, d = w, grp = new THREE.Group(), draw = VIEW.style === 'draw';
+  const railMat = () => mat(draw ? 0xeef1f5 : 0x8394a8), edge = () => new THREE.LineBasicMaterial({ color: draw ? 0x111111 : COL.edge });
+  const box = (sx, sy, sz, x, y, z, material) => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), material); mesh.position.set(x, y, z); grp.add(mesh);
+    const ln = new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry), edge()); ln.position.copy(mesh.position); grp.add(ln);
+    return mesh;
+  };
+  const zc = 5 - d / 2, a = s.a, b = s.b;
+  box(a + 2 * w, w, d, 0, b / 2 + w / 2, zc, railMat()); box(a + 2 * w, w, d, 0, -b / 2 - w / 2, zc, railMat());   // верхняя и нижняя рейки
+  box(w, b, d, a / 2 + w / 2, 0, zc, railMat()); box(w, b, d, -a / 2 - w / 2, 0, zc, railMat());                  // боковые рейки
   const hr = fg === 'S30' ? 6 : 4.5, dark = new THREE.MeshBasicMaterial({ color: 0x1b222a, side: THREE.DoubleSide });
   [[1, 1], [-1, 1], [-1, -1], [1, -1]].forEach(([sx, sy]) => {
-    const cx = sx * (s.a / 2 + w / 2), cy = sy * (s.b / 2 + w / 2);
-    const plate = new THREE.Mesh(new THREE.BoxGeometry(w, w, 3), mat(VIEW.style === 'draw' ? 0xdfe5ec : 0x7e8da0)); plate.position.set(cx, cy, 1.5); grp.add(plate);
-    plate.add(new THREE.LineSegments(new THREE.EdgesGeometry(plate.geometry), new THREE.LineBasicMaterial({ color: VIEW.style === 'draw' ? 0x111111 : COL.edge })));
-    [3.1, -0.1].forEach(z => { const hole = new THREE.Mesh(new THREE.CircleGeometry(hr, 24), dark); hole.position.set(cx, cy, z); grp.add(hole); });
+    const cx = sx * (a / 2 + w / 2), cy = sy * (b / 2 + w / 2);
+    box(w + 6, w + 6, 3, cx, cy, 6.5, mat(draw ? 0xdfe5ec : 0x6d7d91));                                            // уголок
+    const hole = new THREE.Mesh(new THREE.CircleGeometry(hr, 24), dark); hole.position.set(cx, cy, 8.1); grp.add(hole);
   });
   grp.applyMatrix4(m); g.add(grp);
 }
