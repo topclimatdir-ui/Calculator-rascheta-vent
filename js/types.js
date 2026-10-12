@@ -746,10 +746,7 @@ def({
       rings.push(profilePts(q, z));
     }
     put(g, ringsGeom(rings), { flat: isFlat(s), color: VIEW.style === 'draw' ? 0xeceff3 : 0x4a5668 });
-    if (p.shape === 'rect' && p.fg && p.fg !== 'none') [-h, h].forEach(z => {
-      const wl = p.fg === 'S30' ? 30 : 20, out = grow(s, wl), lip = z < 0 ? [z - wl, z] : [z, z + wl];
-      put(g, loft(s, z, out, z), { flat: isFlat(s) }); put(g, tube(out, lip[0], lip[1]), { flat: isFlat(s) });
-    });
+    if (p.shape === 'rect' && p.fg && p.fg !== 'none') { drawFlange(g, s, at(0, 0, -h, PI), p.fg); drawFlange(g, s, at(0, 0, h, 0), p.fg); }
     return g;
   },
 });

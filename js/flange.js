@@ -48,6 +48,14 @@ const flW = fg => (fg === 'S30' ? SET.sw30 : SET.sw20);
 function drawFlange(g, s, m, fg) {
   const w = fg === 'S30' ? 30 : 20, out = grow(s, w), grp = new THREE.Group();
   put(grp, loft(s, 0, out, 0), { flat: true }); put(grp, tube(out, 0, w), { flat: true });
+  /* уголки (4 шт.) с отверстиями под болты по углам фланца */
+  const hr = fg === 'S30' ? 6 : 4.5, dark = new THREE.MeshBasicMaterial({ color: 0x1b222a, side: THREE.DoubleSide });
+  [[1, 1], [-1, 1], [-1, -1], [1, -1]].forEach(([sx, sy]) => {
+    const cx = sx * (s.a / 2 + w / 2), cy = sy * (s.b / 2 + w / 2);
+    const plate = new THREE.Mesh(new THREE.BoxGeometry(w, w, 3), mat(VIEW.style === 'draw' ? 0xdfe5ec : 0x7e8da0)); plate.position.set(cx, cy, 1.5); grp.add(plate);
+    plate.add(new THREE.LineSegments(new THREE.EdgesGeometry(plate.geometry), new THREE.LineBasicMaterial({ color: VIEW.style === 'draw' ? 0x111111 : COL.edge })));
+    [3.1, -0.1].forEach(z => { const hole = new THREE.Mesh(new THREE.CircleGeometry(hr, 24), dark); hole.position.set(cx, cy, z); grp.add(hole); });
+  });
   grp.applyMatrix4(m); g.add(grp);
 }
 
