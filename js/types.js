@@ -241,11 +241,11 @@ const offs = p => {   // смещение оси выхода: одностор�
   const hx = s => (s.t === 'round' ? s.d : s.a) / 2, hy = s => (s.t === 'round' ? s.d : s.b) / 2;
   return { ox: p.tp === 'x' ? hx(s1) - hx(s2) : 0, oy: p.tp === 'y' ? hy(s1) - hy(s2) : 0 };
 };
-const nipsOf = p => {   // круглые врезки (гильзы) на круглых концах перехода
-  const s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'), out = [];
-  if (!(p.nip > 0)) return out;
-  if (s1.t === 'round') out.push({ s: s1, z0: -p.nip, z1: 0, ox: 0, oy: 0 });
-  if (s2.t === 'round') out.push({ s: s2, z0: p.L, z1: p.L + p.nip, ox: offs(p).ox, oy: offs(p).oy });
+const nipsOf = p => {   // прямые участки на концах: круглая гильза (nip) и прямоугольный под фланец (fl)
+  const s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'), o = offs(p), out = [];
+  const len = s => (s.t === 'round' ? p.nip : p.fl) || 0;
+  if (len(s1) > 0) out.push({ s: s1, len: len(s1), z0: -len(s1), z1: 0, ox: 0, oy: 0 });
+  if (len(s2) > 0) out.push({ s: s2, len: len(s2), z0: p.L, z1: p.L + len(s2), ox: o.ox, oy: o.oy });
   return out;
 };
 def({
@@ -253,22 +253,23 @@ def({
   fields: [selF('s1', 'Сечение на входе', SH, 'round'), ...dims('1', 'входа', 's1', 315, 500, 300),
     selF('s2', 'Сечение на выходе', SH, 'round'), ...dims('2', 'выхода', 's2', 200, 400, 200),
     numF('L', 'Длина L, мм', 400), selF('tp', 'Тип перехода', [['c', 'Центральный'], ['x', 'Односторонний (по ширине)'], ['y', 'Односторонний (по высоте)']], 'c'),
-    { k: 'nip', l: 'Круглая врезка (гильза), мм', v: 80, min: 0, show: p => p.s1 === 'round' || p.s2 === 'round' }],
-  label: p => `Переход ${dimStr(shapeOf(p, '1', 's1'))} → ${dimStr(shapeOf(p, '2', 's2'))}, L=${p.L}` + (p.tp === 'c' || !p.tp ? ', центральный' : ', односторонний') + (nipsOf(p).length ? `, врезка ${p.nip}` : ''),
+    { k: 'nip', l: 'Круглая врезка (гильза), мм', v: 80, min: 0, show: p => p.s1 === 'round' || p.s2 === 'round' },
+    { k: 'fl', l: 'Прямой участок под фланец, мм', v: 30, min: 0, show: p => p.s1 === 'rect' || p.s2 === 'rect' }],
+  label: p => `Переход ${dimStr(shapeOf(p, '1', 's1'))} → ${dimStr(shapeOf(p, '2', 's2'))}, L=${p.L}` + (p.tp === 'c' || !p.tp ? ', центральный' : ', односторонний') + (p.s1 === 'round' || p.s2 === 'round' ? (p.nip > 0 ? `, врезка ${p.nip}` : '') : '') + (p.s1 === 'rect' || p.s2 === 'rect' ? (p.fl > 0 ? `, фланец-участок ${p.fl}` : '') : ''),
   geom(p) { const s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'); const o = offs(p); return loft(s1, 0, s2, p.L, o.ox, o.oy); },
   calc(p) {
     const s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'), nips = nipsOf(p);
-    const a = m2(geomArea(this.geom(p)) + nips.reduce((t, n) => t + perim(n.s) * p.nip, 0));
+    const a = m2(geomArea(this.geom(p)) + nips.reduce((t, n) => t + perim(n.s) * n.len, 0));
     const dev = [`Периметры: вход ${n1(perim(s1))} мм, выход ${n1(perim(s2))} мм`];
     if (s1.t === 'round' && s2.t === 'round' && (p.tp === 'c' || !p.tp)) dev.push(conicDev(s1.d, s2.d, p.L));
     else dev.push('Площадь — по 3D-модели; развёртка — по лекалу');
-    nips.forEach(n => dev.push(`Круглая врезка Ø${n1(n.s.d)} × ${p.nip} мм: заготовка ${n1(perim(n.s))} × ${p.nip} мм`));
+    nips.forEach(n => dev.push(n.s.t === 'round' ? `Круглая врезка Ø${n1(n.s.d)} × ${n.len} мм: заготовка ${n1(perim(n.s))} × ${n.len} мм` : `Прямой участок под фланец ${n.s.a}×${n.s.b} × ${n.len} мм: заготовка ${n1(perim(n.s))} × ${n.len} мм`));
     return res(a, wt(a, p.t), dev);
   },
   build(p) {
     const g = new THREE.Group(), s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2');
     put(g, this.geom(p), { flat: isFlat(s1, s2) });
-    nipsOf(p).forEach(n => { const t = new THREE.Group(); put(t, tube(n.s, n.z0, n.z1)); t.position.set(n.ox, n.oy, 0); g.add(t); });
+    nipsOf(p).forEach(n => { const t = new THREE.Group(); put(t, tube(n.s, n.z0, n.z1), { flat: n.s.t === 'rect' }); t.position.set(n.ox, n.oy, 0); g.add(t); });
     return g;
   },
 });
