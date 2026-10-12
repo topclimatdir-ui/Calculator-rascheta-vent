@@ -183,10 +183,34 @@ const ductCalc = function (p) {
   return res(a, wt(a, p.t), [`Заготовка: ${n1(P)} × ${n1(p.L)} мм (${s.t === 'round' ? 'π·D' : '2·(A+B)'} × L)`]);
 };
 const ductBuild = function (p) { const g = new THREE.Group(), s = shapeOf(p); put(g, tube(s, -p.L / 2, p.L / 2), { flat: isFlat(s) }); zigs(g, s, -p.L / 2, p.L / 2); return g; };
+/* поперечные рёбра жёсткости (зиги) на сторонах короба: равный шаг по всей длине, высота SET.zigH */
+function addRibs(g, p) {
+  if (p.rib !== 'cross') return;
+  const col = VIEW.style === 'draw' ? 0x111111 : 0x5f7893, rr = SET.zigH * 0.45, step = p.ribStep || 150;
+  const n = Math.max(1, Math.floor(p.L / step)), z0 = -p.L / 2 + (p.L - (n - 1) * step) / 2;
+  const face = (w, c, axis, sg) => {
+    for (let i = 0; i < n; i++) {
+      const z = z0 + i * step, off = c + sg * rr * 0.6, h = w / 2 - 15;
+      const P = u => (axis === 'y' ? V(u, off, z) : V(off, u, z));
+      g.add(rod(P(-h), P(h), rr, col));
+    }
+  };
+  if (p.A >= p.ribMin) { face(p.A, p.B / 2, 'y', 1); face(p.A, -p.B / 2, 'y', -1); }
+  if (p.B >= p.ribMin) { face(p.B, p.A / 2, 'x', 1); face(p.B, -p.A / 2, 'x', -1); }
+}
 def({
   id: 'box', name: 'Короб прямоугольный', fixed: { shape: 'rect' },
-  fields: [numF('A', 'Ширина A, мм', 500, 20), numF('B', 'Высота B, мм', 300, 20), numF('L', 'Длина L, мм', 1250)],
-  label: p => `Короб прямоугольный ${p.A}×${p.B}, L=${p.L}`, calc: ductCalc, build: ductBuild,
+  fields: [numF('A', 'Ширина A, мм', 500, 20), numF('B', 'Высота B, мм', 300, 20), numF('L', 'Длина L, мм', 1250),
+    selF('rib', 'Рёбра жёсткости (зиги)', [['none', 'Нет'], ['cross', 'Поперечные']], 'none'),
+    numF('ribStep', 'Шаг зигов, мм', 150, 50, p => p.rib === 'cross'),
+    numF('ribMin', 'Рёбра на сторонах от, мм', 300, 100, p => p.rib === 'cross')],
+  label: p => `Короб прямоугольный ${p.A}×${p.B}, L=${p.L}` + (p.rib === 'cross' ? ', рёбра жёсткости' : ''),
+  calc(p) {
+    const r = ductCalc.call(this, p);
+    if (p.rib === 'cross') r.dev.push(`Поперечные зиги: шаг ${p.ribStep} мм, высота ${SET.zigH} мм, на сторонах от ${p.ribMin} мм (${(p.A >= p.ribMin ? 2 : 0) + (p.B >= p.ribMin ? 2 : 0)} грани)`);
+    return r;
+  },
+  build(p) { const g = ductBuild(p); addRibs(g, p); return g; },
 });
 def({
   id: 'pipe', name: 'Труба прямошовная', fixed: { shape: 'round' },
