@@ -52,7 +52,7 @@ function ringsGeom(rings) {
   g.setIndex(idx); g.computeVertexNormals();
   return g;
 }
-const loft = (sA, zA, sB, zB, ox = 0) => ringsGeom([profilePts(sA, zA), profilePts(sB, zB, ox)]);
+const loft = (sA, zA, sB, zB, ox = 0, oy = 0) => ringsGeom([profilePts(sA, zA), profilePts(sB, zB, ox, oy)]);
 const tube = (sh, z0, z1) => loft(sh, z0, sh, z1);
 
 function capGeom(pts) {      // заливка контура веером
@@ -236,26 +236,31 @@ def({
 });
 
 /* 3. Переход */
+const offs = p => {   // смещение оси выхода: односторонний переход совмещает верхнюю/правую стенку
+  const s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2');
+  const hx = s => (s.t === 'round' ? s.d : s.a) / 2, hy = s => (s.t === 'round' ? s.d : s.b) / 2;
+  return { ox: p.tp === 'x' ? hx(s1) - hx(s2) : 0, oy: p.tp === 'y' ? hy(s1) - hy(s2) : 0 };
+};
 const nipsOf = p => {   // круглые врезки (гильзы) на круглых концах перехода
   const s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'), out = [];
   if (!(p.nip > 0)) return out;
-  if (s1.t === 'round') out.push({ s: s1, z0: -p.nip, z1: 0, ox: 0 });
-  if (s2.t === 'round') out.push({ s: s2, z0: p.L, z1: p.L + p.nip, ox: p.off });
+  if (s1.t === 'round') out.push({ s: s1, z0: -p.nip, z1: 0, ox: 0, oy: 0 });
+  if (s2.t === 'round') out.push({ s: s2, z0: p.L, z1: p.L + p.nip, ox: offs(p).ox, oy: offs(p).oy });
   return out;
 };
 def({
   id: 'transition', name: 'Переход',
   fields: [selF('s1', 'Сечение на входе', SH, 'round'), ...dims('1', 'входа', 's1', 315, 500, 300),
     selF('s2', 'Сечение на выходе', SH, 'round'), ...dims('2', 'выхода', 's2', 200, 400, 200),
-    numF('L', 'Длина L, мм', 400), { k: 'off', l: 'Смещение оси (эксцентрик), мм', v: 0, min: -5000 },
+    numF('L', 'Длина L, мм', 400), selF('tp', 'Тип перехода', [['c', 'Центральный'], ['x', 'Односторонний (по ширине)'], ['y', 'Односторонний (по высоте)']], 'c'),
     { k: 'nip', l: 'Круглая врезка (гильза), мм', v: 80, min: 0, show: p => p.s1 === 'round' || p.s2 === 'round' }],
-  label: p => `Переход ${dimStr(shapeOf(p, '1', 's1'))} → ${dimStr(shapeOf(p, '2', 's2'))}, L=${p.L}` + (nipsOf(p).length ? `, врезка ${p.nip}` : ''),
-  geom(p) { const s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'); return loft(s1, 0, s2, p.L, p.off); },
+  label: p => `Переход ${dimStr(shapeOf(p, '1', 's1'))} → ${dimStr(shapeOf(p, '2', 's2'))}, L=${p.L}` + (p.tp === 'c' || !p.tp ? ', центральный' : ', односторонний') + (nipsOf(p).length ? `, врезка ${p.nip}` : ''),
+  geom(p) { const s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'); const o = offs(p); return loft(s1, 0, s2, p.L, o.ox, o.oy); },
   calc(p) {
     const s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'), nips = nipsOf(p);
     const a = m2(geomArea(this.geom(p)) + nips.reduce((t, n) => t + perim(n.s) * p.nip, 0));
     const dev = [`Периметры: вход ${n1(perim(s1))} мм, выход ${n1(perim(s2))} мм`];
-    if (s1.t === 'round' && s2.t === 'round' && !p.off) dev.push(conicDev(s1.d, s2.d, p.L));
+    if (s1.t === 'round' && s2.t === 'round' && (p.tp === 'c' || !p.tp)) dev.push(conicDev(s1.d, s2.d, p.L));
     else dev.push('Площадь — по 3D-модели; развёртка — по лекалу');
     nips.forEach(n => dev.push(`Круглая врезка Ø${n1(n.s.d)} × ${p.nip} мм: заготовка ${n1(perim(n.s))} × ${p.nip} мм`));
     return res(a, wt(a, p.t), dev);
@@ -263,7 +268,7 @@ def({
   build(p) {
     const g = new THREE.Group(), s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2');
     put(g, this.geom(p), { flat: isFlat(s1, s2) });
-    nipsOf(p).forEach(n => { const t = new THREE.Group(); put(t, tube(n.s, n.z0, n.z1)); t.position.x = n.ox; g.add(t); });
+    nipsOf(p).forEach(n => { const t = new THREE.Group(); put(t, tube(n.s, n.z0, n.z1)); t.position.set(n.ox, n.oy, 0); g.add(t); });
     return g;
   },
 });

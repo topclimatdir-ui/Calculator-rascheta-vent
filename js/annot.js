@@ -38,9 +38,9 @@ const ANN = {
     return out;
   },
   transition(p) {
-    const s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'), k = kk(hx(s1) * 2, hx(s2) * 2, p.L * 0.6), m = Math.max(hx(s1), hx(s2) + Math.abs(p.off));
-    const out = [...sec(s1, 0, k), ...sec(s2, p.L, k, p.off), lin(V(m, 0, 0), V(m, 0, p.L), V(k, 0, 0), 'L=' + p.L)];
-    nipsOf(p).forEach(n => out.push(lin(V(n.ox, n.s.d / 2, n.z0), V(n.ox, n.s.d / 2, n.z1), V(0, k, 0), String(p.nip))));
+    const s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'), k = kk(hx(s1) * 2, hx(s2) * 2, p.L * 0.6), o = offs(p), m = Math.max(hx(s1), hx(s2) + Math.abs(o.ox));
+    const out = [...sec(s1, 0, k), ...sec(s2, p.L, k, o.ox, o.oy), lin(V(m, 0, 0), V(m, 0, p.L), V(k, 0, 0), 'L=' + p.L)];
+    nipsOf(p).forEach(n => out.push(lin(V(n.ox, n.oy + n.s.d / 2, n.z0), V(n.ox, n.oy + n.s.d / 2, n.z1), V(0, k, 0), String(p.nip))));
     return out;
   },
   tee(p) {
