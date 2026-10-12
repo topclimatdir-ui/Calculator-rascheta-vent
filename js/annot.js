@@ -118,6 +118,12 @@ ANN.flex = function (p) {
   if (fo) out.push(lab(V(hx(s) + 60, hy(s) + fo, -h - 10), p.fg));
   return out;
 };
+ANN.tap = function (p) {
+  const s = shapeOf(p), k = kk(hx(s) * 2, hy(s) * 2);
+  const out = [...sec(s, p.Lb, k), lin(V(0, hy(s), 0), V(0, hy(s), p.Lb), V(0, k, 0), 'h=' + p.Lb)];
+  if (p.end === 'saddle') out.push(lab(V(0, -hy(s) - k * 0.6, -p.Dm / 2), 'Ø' + p.Dm));
+  return out;
+};
 ANN.box = ANN.pipe = ANN.snv = ANN.nipple = ANN.duct;
 TYPES.forEach(t => { t.annot = ANN[t.id]; });
 
