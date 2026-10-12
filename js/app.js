@@ -109,11 +109,11 @@ let timer;
 
 const GROUPS = [
   { title: 'Круглое сечение', items: [['pipe'], ['snv'], ['nipple'], ['elbow', { shape: 'round', ang: 45 }, 'Отвод'], ['transition', { s1: 'round', s2: 'round', L: 250 }, 'Переход'],
-    ['tee', { s1: 'round', s2: 'round' }, 'Тройник / врезка / крестовина'], ['tap', { shape: 'round', end: 'flat' }, 'Врезка круглая ровная'], ['tap', { shape: 'round', end: 'saddle' }, 'Врезка круглая в трубу'], ['throttle', { shape: 'round' }], ['cap', { shape: 'round', h: 80 }], ['mesh', { shape: 'round', fw: 80 }],
+    ['tee', { s1: 'round', s2: 'round' }, 'Тройник / врезка / крестовина'], ['tap', { shape: 'round', end: 'flat' }, 'Врезка круглая ровная'], ['tap', { shape: 'round', end: 'saddle' }, 'Врезка круглая в трубу'], ['throttle', { shape: 'round' }], ['checkv', { shape: 'round' }], ['cap', { shape: 'round', h: 80 }], ['mesh', { shape: 'round', fw: 80 }],
     ['clamp'], ['mushroom'], ['tsagi'], ['exhaust45'], ['nozzle'], ['silround'], ['flex', { shape: 'round', fg: 'none' }, 'Гибкая вставка'], ['filterbox', { cs: 'round' }, 'Фильтр-бокс (круглое присоединение)']] },
   { title: 'Прямоугольное сечение', items: [['box'], ['elbow', { shape: 'rect', ends: 100, ang: 90, ri: 0 }, 'Отвод'], ['transition', { s1: 'rect', s2: 'rect', L: 250 }, 'Переход'],
-    ['tee', { s1: 'rect', s2: 'rect', Lb: 80 }, 'Тройник / врезка / крестовина'], ['tap', { shape: 'rect', end: 'flat' }, 'Врезка прямоугольная ровная'], ['tap', { shape: 'rect', end: 'saddle' }, 'Врезка прямоугольная седло'], ['throttle', { shape: 'rect' }], ['cap', { shape: 'rect' }], ['mesh', { shape: 'rect' }],
-    ['silrect'], ['filterbox', { cs: 'rect' }, 'Фильтр-бокс (прямоуг. присоединение)'], ['cassette'], ['pocketf'], ['flex', { shape: 'rect' }, 'Гибкая вставка (фланец S20)'], ['hood']] },
+    ['tee', { s1: 'rect', s2: 'rect', Lb: 80 }, 'Тройник / врезка / крестовина'], ['tap', { shape: 'rect', end: 'flat' }, 'Врезка прямоугольная ровная'], ['tap', { shape: 'rect', end: 'saddle' }, 'Врезка прямоугольная седло'], ['throttle', { shape: 'rect', fg: 'S20' }], ['checkv', { shape: 'rect' }], ['cap', { shape: 'rect' }], ['mesh', { shape: 'rect' }],
+    ['silrect', { fg: 'S20' }, 'Шумоглушитель прямоугольный'], ['filterbox', { cs: 'rect', fg: 'S20' }, 'Фильтр-бокс (прямоуг. присоединение)'], ['cassette'], ['pocketf'], ['flex', { shape: 'rect' }, 'Гибкая вставка (фланец S20)'], ['hood']] },
   { title: 'Комбинированные: круг и прямоугольник', items: [['transition', { s1: 'round', s2: 'rect', L: 250 }, 'Переход круг → прямоугольник'],
     ['transition', { s1: 'rect', s2: 'round', L: 250 }, 'Переход прямоугольник → круг'], ['tee', { s1: 'rect', s2: 'round', Lb: 80 }, 'Тройник: магистраль прямоуг., ответвление круглое'],
     ['tee', { s1: 'round', s2: 'rect' }, 'Тройник: магистраль круглая, ответвление прямоуг.']] },
@@ -136,7 +136,7 @@ function numericOk() {
   return cur.type.fields.every(f => (f.show && !f.show(cur.p)) || f.sel || (isFinite(cur.p[f.k]) && cur.p[f.k] >= f.min));
 }
 function rateFor(t) { return +state.set.rate[String(+t)] || 0; }
-const ROUND_ZIG = ['pipe', 'snv', 'elbow', 'transition', 'tee', 'throttle', 'cap', 'mesh', 'mushroom', 'tsagi', 'exhaust45', 'nozzle', 'silround', 'hood'];
+const ROUND_ZIG = ['pipe', 'snv', 'elbow', 'transition', 'tee', 'throttle', 'checkv', 'cap', 'mesh', 'mushroom', 'tsagi', 'exhaust45', 'nozzle', 'silround', 'hood'];
 function compute(type, p) {
   const r = withFlange(type, p, type.calc(p));
   const round = type.fixed ? type.fixed.shape === 'round' : [p.shape, p.s1, p.s2, p.ns, p.cs].includes('round') || ['mushroom', 'tsagi', 'exhaust45', 'nozzle', 'silround'].includes(type.id);

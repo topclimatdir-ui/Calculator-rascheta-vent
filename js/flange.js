@@ -28,6 +28,7 @@ const PLACE = {
     return out;
   },
   throttle(p) { const s = shapeOf(p); return s.t === 'rect' ? [{ s, m: at(0, 0, -p.L / 2, PI) }, { s, m: at(0, 0, p.L / 2, 0) }] : []; },
+  checkv(p) { return PLACE.throttle(p); },
   cap(p) { const s = shapeOf(p); return s.t === 'rect' ? [{ s, m: at(0, 0, p.h, 0) }] : []; },
   mesh(p) { const s = shapeOf(p); return s.t === 'rect' ? [{ s, m: at(0, 0, 0, PI) }] : []; },
   silrect(p) { const s = { t: 'rect', a: p.A, b: p.B }, h = p.L / 2 + 40; return [{ s, m: at(0, 0, -h, PI) }, { s, m: at(0, 0, h, 0) }]; },
@@ -41,7 +42,7 @@ const PLACE = {
 };
 const FL_SHOW = {
   box: () => true, elbow: p => p.shape === 'rect', transition: p => p.s1 === 'rect' || p.s2 === 'rect', tee: p => p.s1 === 'rect' || p.s2 === 'rect',
-  throttle: p => p.shape === 'rect', cap: p => p.shape === 'rect', mesh: p => p.shape === 'rect', tap: p => p.shape === 'rect', silrect: () => true, filterbox: p => p.cs === 'rect', hood: p => p.ns === 'rect',
+  throttle: p => p.shape === 'rect', checkv: p => p.shape === 'rect', cap: p => p.shape === 'rect', mesh: p => p.shape === 'rect', tap: p => p.shape === 'rect', silrect: () => true, filterbox: p => p.cs === 'rect', hood: p => p.ns === 'rect',
 };
 const FL_OPTS = [['none', 'Без фланца'], ['S20', 'Фланец S20 (шинорейка)'], ['S30', 'Фланец S30 (шинорейка)']];
 const flW = fg => (fg === 'S30' ? SET.sw30 : SET.sw20);

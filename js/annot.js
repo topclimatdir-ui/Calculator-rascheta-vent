@@ -124,7 +124,7 @@ ANN.tap = function (p) {
   if (p.end === 'saddle') out.push(lab(V(0, -hy(s) - k * 0.6, -p.Dm / 2), 'Ø' + p.Dm));
   return out;
 };
-ANN.box = ANN.pipe = ANN.snv = ANN.nipple = ANN.duct;
+ANN.box = ANN.pipe = ANN.snv = ANN.nipple = ANN.duct; ANN.checkv = ANN.throttle;
 TYPES.forEach(t => { t.annot = ANN[t.id]; });
 
 /* рисование размеров на 2D-холсте поверх 3D-картинки */

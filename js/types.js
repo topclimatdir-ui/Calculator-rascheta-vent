@@ -396,6 +396,38 @@ def({
   },
 });
 
+/* 5а. Обратный клапан */
+def({
+  id: 'checkv', name: 'Обратный клапан',
+  fields: [selF('shape', 'Сечение', SH, 'round'), ...dims('', '', 'shape', 315, 500, 300),
+    numF('L', 'Длина корпуса L, мм', 200), numF('open', 'Показать угол открытия, ° (для картинки)', 30, 0)],
+  label: p => `Обратный клапан ${p.shape === 'round' ? 'круглый' : 'прямоугольный'} ${dimStr(shapeOf(p))}, L=${p.L}`,
+  nBlades: p => Math.max(2, Math.min(5, Math.round(p.B / 100))),
+  calc(p) {
+    const s = shapeOf(p), a = m2(perim(s) * p.L + areaCS(s));
+    return res(a, wt(a, p.t) + 0.4, [`Корпус: ${n1(perim(s))} × ${n1(p.L)} мм`,
+      s.t === 'round' ? `Створки: 2 полудиска Ø${n1(s.d - 4)} на оси` : `Ламели: ${this.nBlades(p)} шт. ${n1(s.a - 4)}×${n1(s.b / this.nBlades(p) - 2)} мм`, 'В вес включено 0,4 кг на оси и пружины']);
+  },
+  build(p) {
+    const g = new THREE.Group(), s = shapeOf(p), op = p.open * PI / 180;
+    put(g, tube(s, -p.L / 2, p.L / 2), { flat: isFlat(s) }); zigs(g, s, -p.L / 2, p.L / 2);
+    const fm = mat(0x6f8aa6);
+    if (s.t === 'round') {
+      const r = s.d / 2 - 2;
+      [[-PI / 2, -1], [PI / 2, 1]].forEach(([th, sg]) => { const m = new THREE.Mesh(new THREE.CircleGeometry(r, 48, th, PI), fm); m.rotation.y = sg * op; g.add(m); });
+      g.add(rod(V(0, -s.d / 2 - 5, 0), V(0, s.d / 2 + 5, 0), 4));
+    } else {
+      const n = this.nBlades(p), bh = s.b / n;
+      for (let i = 0; i < n; i++) {
+        const geo = new THREE.PlaneGeometry(s.a - 4, bh - 2); geo.translate(0, -bh / 2 + 1, 0);
+        const m = new THREE.Mesh(geo, fm); m.position.set(0, -s.b / 2 + bh * (i + 1), 0); m.rotation.x = -op; g.add(m);
+        g.add(rod(V(-s.a / 2 - 4, -s.b / 2 + bh * (i + 1), 0), V(s.a / 2 + 4, -s.b / 2 + bh * (i + 1), 0), 2.5));
+      }
+    }
+    return g;
+  },
+});
+
 /* 6. Грибок (флюгарка) */
 def({
   id: 'mushroom', name: 'Грибок (флюгарка)', up: true,
