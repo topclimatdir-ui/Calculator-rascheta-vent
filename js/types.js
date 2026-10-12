@@ -183,46 +183,10 @@ const ductCalc = function (p) {
   return res(a, wt(a, p.t), [`Заготовка: ${n1(P)} × ${n1(p.L)} мм (${s.t === 'round' ? 'π·D' : '2·(A+B)'} × L)`]);
 };
 const ductBuild = function (p) { const g = new THREE.Group(), s = shapeOf(p); put(g, tube(s, -p.L / 2, p.L / 2), { flat: isFlat(s) }); zigs(g, s, -p.L / 2, p.L / 2); return g; };
-/* ребра жёсткости на широких сторонах короба: ёлочка, зедка, диагональные зиги */
-function ribSegments(type, w, L, step) {   // сегменты [u0, z0, u1, z1] на грани шириной w, длиной L
-  const m = 50, h = w / 2 - m, out = [];
-  if (type === 'cross') {   // поперечные параллельные зиги с равным шагом по всей длине (как на коробах из каталога)
-    const n = Math.max(1, Math.floor(L / step)), z0 = -L / 2 + (L - (n - 1) * step) / 2;
-    for (let i = 0; i < n; i++) out.push([-w / 2 + 15, z0 + i * step, w / 2 - 15, z0 + i * step]);
-  } else if (type === 'diag') {
-    const n = Math.max(1, Math.round(L / w)), pl = L / n;
-    for (let i = 0; i < n; i++) { const za = -L / 2 + pl * i + m, zb = -L / 2 + pl * (i + 1) - m; out.push([-h, za, h, zb], [-h, zb, h, za]); }
-  } else if (type === 'yolka') {   // «ёлочка»: шевроны через каждые step мм, первый — на расстоянии step от края
-    for (let z = -L / 2 + step; z <= L / 2 - step + 0.1; z += step) out.push([-h, z - h * 0.5, 0, z], [0, z, h, z - h * 0.5]);
-  } else if (type === 'zedka') {   // «зедка»: две поперечные планки на расстоянии step, соединённые косой
-    for (let z = -L / 2 + step; z + step <= L / 2 - step + 0.1; z += 3 * step) out.push([-h, z, h, z], [h, z, -h, z + step], [-h, z + step, h, z + step]);
-  }
-  return out;
-}
-function addRibs(g, p) {
-  if (!p.rib || p.rib === 'none') return;
-  const col = VIEW.style === 'draw' ? 0x111111 : 0x5f7893, rr = SET.zigH * 0.45;
-  const face = (w, c, axis, sg) => ribSegments(p.rib, w, p.L, p.ribStep || 150).forEach(([u0, z0, u1, z1]) => {
-    const P = (u, z) => (axis === 'y' ? V(u, c + sg * rr * 0.6, z) : V(c + sg * rr * 0.6, u, z));
-    g.add(rod(P(u0, z0), P(u1, z1), rr, col));
-  });
-  if (p.A >= p.ribMin) { face(p.A, p.B / 2, 'y', 1); face(p.A, -p.B / 2, 'y', -1); }
-  if (p.B >= p.ribMin) { face(p.B, p.A / 2, 'x', 1); face(p.B, -p.A / 2, 'x', -1); }
-}
-const RIB_NAMES = { cross: 'поперечные', yolka: 'ёлочка', zedka: 'зедка', diag: 'диагональные зиги (X)' };
 def({
   id: 'box', name: 'Короб прямоугольный', fixed: { shape: 'rect' },
-  fields: [numF('A', 'Ширина A, мм', 500, 20), numF('B', 'Высота B, мм', 300, 20), numF('L', 'Длина L, мм', 1250),
-    selF('rib', 'Рёбра жёсткости (зиги)', [['none', 'Нет'], ['cross', 'Поперечные (через шаг)'], ['yolka', 'Ёлочка'], ['zedka', 'Зедка'], ['diag', 'Диагональные (X)']], 'none'),
-    numF('ribMin', 'Рёбра на сторонах от, мм', 300, 100, p => p.rib !== 'none'),
-    numF('ribStep', 'Шаг зигов, мм', 150, 50, p => p.rib === 'cross' || p.rib === 'yolka' || p.rib === 'zedka')],
-  label: p => `Короб прямоугольный ${p.A}×${p.B}, L=${p.L}` + (p.rib && p.rib !== 'none' ? ', рёбра: ' + RIB_NAMES[p.rib] : ''),
-  calc(p) {
-    const r = ductCalc.call(this, p);
-    if (p.rib && p.rib !== 'none') r.dev.push(`Зиги «${RIB_NAMES[p.rib]}», высота ${SET.zigH} мм${p.rib !== 'diag' ? ', шаг ' + p.ribStep + ' мм' : ''}, на сторонах от ${p.ribMin} мм (${(p.A >= p.ribMin ? 2 : 0) + (p.B >= p.ribMin ? 2 : 0)} грани)`);
-    return r;
-  },
-  build(p) { const g = ductBuild(p); addRibs(g, p); return g; },
+  fields: [numF('A', 'Ширина A, мм', 500, 20), numF('B', 'Высота B, мм', 300, 20), numF('L', 'Длина L, мм', 1250)],
+  label: p => `Короб прямоугольный ${p.A}×${p.B}, L=${p.L}`, calc: ductCalc, build: ductBuild,
 });
 def({
   id: 'pipe', name: 'Труба прямошовная', fixed: { shape: 'round' },
