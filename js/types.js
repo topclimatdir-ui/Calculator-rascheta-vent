@@ -557,6 +557,35 @@ def({
   },
 });
 
+/* 16. Фильтр-бокс */
+def({
+  id: 'filterbox', name: 'Фильтр-бокс',
+  fields: [selF('cs', 'Присоединение', SH, 'rect'), ...dims('', 'присоединения', 'cs', 315, 500, 300),
+    numF('L', 'Длина корпуса L, мм', 500), numF('mg', 'Запас корпуса от сечения, мм (с каждой стороны)', 50, 0),
+    numF('th', 'Толщина кассеты фильтра, мм', 48), numF('fl', 'Патрубок присоединения, мм', 30, 0)],
+  label: p => `Фильтр-бокс ${dimStr(shapeOf(p, '', 'cs'))}, корпус L=${p.L}, кассета ${p.th}`,
+  body(p) { const c = shapeOf(p, '', 'cs'), w = (c.t === 'round' ? c.d : c.a) + 2 * p.mg, h = (c.t === 'round' ? c.d : c.b) + 2 * p.mg; return { c, b: { t: 'rect', a: w, b: h } }; },
+  calc(p) {
+    const { c, b } = this.body(p), plates = 2 * (areaCS(b) - areaCS(c));
+    const a = m2(perim(b) * p.L + plates + 2 * perim(c) * p.fl);
+    return res(a, wt(a, p.t), [`Корпус: ${b.a}×${b.b}×${p.L} мм, торцы с отверстием под ${dimStr(c)}`, `Патрубки: 2 × ${p.fl} мм`,
+      `Кассета ${p.th} мм (${b.a - 10}×${b.b - 10}) и дверца обслуживания — вставляются сбоку, в вес не включены`]);
+  },
+  build(p) {
+    const g = new THREE.Group(), { c, b } = this.body(p), h = p.L / 2;
+    put(g, tube(b, -h, h), { flat: true, opacity: 0.4, edges: false });
+    [-h, h].forEach(z => put(g, loft(b, z, c, z), { flat: true }));
+    if (p.fl > 0) { put(g, tube(c, -h - p.fl, -h), { flat: isFlat(c) }); put(g, tube(c, h, h + p.fl), { flat: isFlat(c) }); }
+    const box = new THREE.BoxGeometry(b.a, b.b, p.L);
+    g.add(new THREE.LineSegments(new THREE.EdgesGeometry(box), new THREE.LineBasicMaterial({ color: VIEW.style === 'draw' ? 0x111111 : COL.edge })));
+    const cs = new THREE.Mesh(new THREE.BoxGeometry(b.a - 10, b.b - 10, p.th), mat(0xdde8ef, { roughness: 0.9, metalness: 0 })); g.add(cs);
+    g.add(new THREE.LineSegments(new THREE.EdgesGeometry(cs.geometry), new THREE.LineBasicMaterial({ color: COL.edge })));
+    const door = new THREE.Mesh(new THREE.BoxGeometry(6, b.b * 0.7, Math.max(p.th + 60, p.L * 0.5)), mat(COL.steel)); door.position.set(b.a / 2 + 3, 0, 0); g.add(door);
+    g.add(rod(V(b.a / 2 + 6, -b.b * 0.1, 0), V(b.a / 2 + 6, b.b * 0.1, 0), 5, 0x333c48));
+    return g;
+  },
+});
+
 /* общие помощники для интерфейса */
 function defaultsOf(type) {
   const p = {};

@@ -110,16 +110,16 @@ let timer;
 const GROUPS = [
   { title: 'Круглое сечение', items: [['pipe'], ['snv'], ['elbow', { shape: 'round' }, 'Отвод'], ['transition', { s1: 'round', s2: 'round' }, 'Переход'],
     ['tee', { s1: 'round', s2: 'round' }, 'Тройник / врезка / крестовина'], ['throttle', { shape: 'round' }], ['cap', { shape: 'round', h: 80 }], ['mesh', { shape: 'round', fw: 80 }],
-    ['clamp'], ['mushroom'], ['tsagi'], ['exhaust45'], ['nozzle'], ['silround']] },
+    ['clamp'], ['mushroom'], ['tsagi'], ['exhaust45'], ['nozzle'], ['silround'], ['filterbox', { cs: 'round' }, 'Фильтр-бокс (круглое присоединение)']] },
   { title: 'Прямоугольное сечение', items: [['box'], ['elbow', { shape: 'rect' }, 'Отвод'], ['transition', { s1: 'rect', s2: 'rect' }, 'Переход'],
     ['tee', { s1: 'rect', s2: 'rect' }, 'Тройник / врезка / крестовина'], ['throttle', { shape: 'rect' }], ['cap', { shape: 'rect' }], ['mesh', { shape: 'rect' }],
-    ['silrect'], ['hood']] },
+    ['silrect'], ['filterbox', { cs: 'rect' }, 'Фильтр-бокс (прямоуг. присоединение)'], ['hood']] },
   { title: 'Комбинированные: круг и прямоугольник', items: [['transition', { s1: 'round', s2: 'rect' }, 'Переход круг → прямоугольник'],
     ['transition', { s1: 'rect', s2: 'round' }, 'Переход прямоугольник → круг'], ['tee', { s1: 'rect', s2: 'round' }, 'Тройник: магистраль прямоуг., ответвление круглое'],
     ['tee', { s1: 'round', s2: 'rect' }, 'Тройник: магистраль круглая, ответвление прямоуг.']] },
 ];
 const ENTRIES = []; GROUPS.forEach((g, gi) => g.items.forEach(([id, preset, label]) => ENTRIES.push({ gi, id, preset: preset || {}, label: label || TYPES.find(t => t.id === id).name })));
-cur.entry = 0; cur.lock = ['shape', 's1', 's2'].filter(k => k in ENTRIES[0].preset);
+cur.entry = 0; cur.lock = ['shape', 's1', 's2', 'cs'].filter(k => k in ENTRIES[0].preset);
 function renderTypes() {
   $('#types').innerHTML = GROUPS.map((g, gi) => `<div class="tg"><h3>${g.title}</h3><div class="tb">` +
     ENTRIES.map((e, i) => e.gi === gi ? `<button type="button" data-i="${i}" class="${i === cur.entry ? 'on' : ''}">${esc(e.label)}</button>` : '').join('') + '</div></div>').join('');
@@ -170,7 +170,7 @@ function rebuild() {
 }
 function setEntry(i) {
   const e = ENTRIES[i]; cur.entry = i; cur.type = TYPES.find(t => t.id === e.id);
-  cur.p = Object.assign(defaultsOf(cur.type), e.preset); cur.lock = ['shape', 's1', 's2'].filter(k => k in e.preset); cur.editId = null;
+  cur.p = Object.assign(defaultsOf(cur.type), e.preset); cur.lock = ['shape', 's1', 's2', 'cs'].filter(k => k in e.preset); cur.editId = null;
   $('#add').textContent = '＋ Добавить в КП'; $('#cancel').hidden = true; $('#price').value = '';
   renderTypes(); renderForm(); update();
 }

@@ -100,6 +100,11 @@ const ANN = {
       lin(V(p.A / 2, p.B / 2, 0), V(p.A / 2, p.B / 2, top + p.hn), V(k, 0, 0), 'H=' + (top + p.hn))];
   },
 };
+ANN.filterbox = function (p) {
+  const { c, b } = TYPES.find(t => t.id === 'filterbox').body(p), h = p.L / 2, k = kk(b.a, b.b);
+  return [...sec(c, h + p.fl, k), lin(V(0, b.b / 2, -h), V(0, b.b / 2, h), V(0, k, 0), 'L=' + p.L),
+    lin(V(-b.a / 2, -b.b / 2, h), V(b.a / 2, -b.b / 2, h), V(0, -k * 1.9, 0), 'A=' + n1(b.a)), lin(V(b.a / 2, -b.b / 2, -h), V(b.a / 2, b.b / 2, -h), V(k, 0, 0), 'B=' + n1(b.b))];
+};
 ANN.box = ANN.pipe = ANN.snv = ANN.duct;
 TYPES.forEach(t => { t.annot = ANN[t.id]; });
 
