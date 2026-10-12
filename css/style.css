@@ -10,7 +10,9 @@ main { max-width: 1280px; margin: 0 auto; padding: 16px; }
 .panel { background: #fff; border-radius: 10px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 4px #0002; }
 .panel h2 { margin: 0 0 10px; font-size: 16px; color: var(--teal); }
 summary { cursor: pointer; font-weight: 700; color: var(--teal); }
-.types { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.types { display: grid; gap: 10px; margin-bottom: 14px; }
+.tg h3 { margin: 0 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--teal); }
+.tb { display: flex; flex-wrap: wrap; gap: 6px; }
 .types button { padding: 6px 10px; font-size: 13px; }
 .types button.on { background: var(--teal); color: #fff; border-color: var(--teal); }
 .cols { display: grid; grid-template-columns: minmax(300px, 1fr) minmax(300px, 1fr); gap: 18px; }
@@ -81,3 +83,5 @@ h2 input[type=date], .kv input[type=date] { width: auto; border: 0; padding: 0; 
   .grid input { background: none !important; } .grid tr { break-inside: avoid; }
   [contenteditable]:empty::before { content: ''; }
 }
+
+.sub { font-size: 13px; color: var(--teal); margin: 14px 0 6px; }

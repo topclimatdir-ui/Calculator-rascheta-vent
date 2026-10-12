@@ -31,7 +31,7 @@ const DOC0 = {
   comments: '', boss: 'Директор ТОВ «ВЕНТ ФЕКТОРІ»', bossName: '[ПІБ]',
   foot1: 'ТОВ «ВЕНТ ФЕКТОРІ» · Повітроводи та вентиляційні системи', foot2: '+38 067 8866 255 · ventfactory.kr@gmail.com',
 };
-const SET0 = { lang: 'uk', disc: 10, vat: 20, rate: { '0.5': 650, '0.7': 850, '1': 1200 }, density: 7850, meshW: 1, woolD: 80 };
+const SET0 = { snv: {}, lang: 'uk', disc: 10, vat: 20, rate: { '0.5': 650, '0.7': 850, '1': 1200 }, density: 7850, meshW: 1, woolD: 80 };
 
 let state = { set: structuredClone(SET0), doc: structuredClone(DOC0), items: [], logo: null, sections: ['Повітроводи та фасонні вироби'] };
 try { const s = JSON.parse(localStorage.getItem(LS)); if (s) { Object.assign(state, s); state.set = Object.assign(structuredClone(SET0), s.set); state.doc = Object.assign(structuredClone(DOC0), s.doc); } } catch (e) { }
@@ -103,14 +103,28 @@ function snapshot(type, p) {
 
 /* ---------- конструктор ---------- */
 VIEW.style = 'metal';
-const cur = { type: TYPES[0], p: defaultsOf(TYPES[0]), editId: null };
+const cur = { type: TYPES.find(t => t.id === 'pipe'), p: defaultsOf(TYPES.find(t => t.id === 'pipe')), editId: null };
 let timer;
 
+const GROUPS = [
+  { title: 'Круглое сечение', items: [['pipe'], ['snv'], ['elbow', { shape: 'round' }, 'Отвод'], ['transition', { s1: 'round', s2: 'round' }, 'Переход'],
+    ['tee', { s1: 'round', s2: 'round' }, 'Тройник / врезка / крестовина'], ['throttle', { shape: 'round' }], ['cap', { shape: 'round' }], ['mesh', { shape: 'round' }],
+    ['clamp'], ['mushroom'], ['tsagi'], ['exhaust45'], ['nozzle'], ['silround']] },
+  { title: 'Прямоугольное сечение', items: [['box'], ['elbow', { shape: 'rect' }, 'Отвод'], ['transition', { s1: 'rect', s2: 'rect' }, 'Переход'],
+    ['tee', { s1: 'rect', s2: 'rect' }, 'Тройник / врезка / крестовина'], ['throttle', { shape: 'rect' }], ['cap', { shape: 'rect' }], ['mesh', { shape: 'rect' }],
+    ['silrect'], ['hood']] },
+  { title: 'Комбинированные: круг и прямоугольник', items: [['transition', { s1: 'round', s2: 'rect' }, 'Переход круг → прямоугольник'],
+    ['transition', { s1: 'rect', s2: 'round' }, 'Переход прямоугольник → круг'], ['tee', { s1: 'rect', s2: 'round' }, 'Тройник: магистраль прямоуг., ответвление круглое'],
+    ['tee', { s1: 'round', s2: 'rect' }, 'Тройник: магистраль круглая, ответвление прямоуг.']] },
+];
+const ENTRIES = []; GROUPS.forEach((g, gi) => g.items.forEach(([id, preset, label]) => ENTRIES.push({ gi, id, preset: preset || {}, label: label || TYPES.find(t => t.id === id).name })));
+cur.entry = 0; cur.lock = Object.keys(ENTRIES[0].preset);
 function renderTypes() {
-  $('#types').innerHTML = TYPES.map(t => `<button type="button" data-t="${t.id}" class="${t === cur.type ? 'on' : ''}">${esc(t.name)}</button>`).join('');
+  $('#types').innerHTML = GROUPS.map((g, gi) => `<div class="tg"><h3>${g.title}</h3><div class="tb">` +
+    ENTRIES.map((e, i) => e.gi === gi ? `<button type="button" data-i="${i}" class="${i === cur.entry ? 'on' : ''}">${esc(e.label)}</button>` : '').join('') + '</div></div>').join('');
 }
 function renderForm() {
-  const html = cur.type.fields.filter(f => !f.show || f.show(cur.p)).map(f => {
+  const html = cur.type.fields.filter(f => !cur.lock.includes(f.k)).filter(f => !f.show || f.show(cur.p)).map(f => {
     if (f.sel) return `<label>${f.l}<select data-k="${f.k}">${f.sel.map(o => `<option value="${o[0]}" ${cur.p[f.k] === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></label>`;
     return `<label>${f.l}<input type="number" step="any" min="${f.min}" data-k="${f.k}" value="${cur.p[f.k]}"></label>`;
   }).join('');
@@ -122,6 +136,14 @@ function numericOk() {
 }
 function rateFor(t) { return +state.set.rate[String(+t)] || 0; }
 function compute(type, p) { return type.calc(p); }
+const SNV_D = [100, 125, 160, 200, 250, 315, 355, 400, 450, 500, 560, 630, 710, 800, 900, 1000];
+function autoPrice(type, p, area) {   // цена за единицу (шт.)
+  if (type.perMp) {
+    const mp = +(state.set.snv || {})[p.D] || (area / (p.L / 1000)) * rateFor(p.t);
+    return Math.round(mp * p.L / 1000 * 100) / 100;
+  }
+  return Math.round(area * rateFor(p.t) * 100) / 100;
+}
 
 function update() {
   const ok = numericOk();
@@ -129,7 +151,7 @@ function update() {
   if (!ok) { $('#result').innerHTML = ''; return; }
   const r = compute(cur.type, cur.p);
   cur.r = r;
-  const unit = Math.round(r.area * rateFor(cur.p.t) * 100) / 100;
+  const unit = autoPrice(cur.type, cur.p, r.area);
   $('#result').innerHTML = `
     <div class="kpis"><div><span>Площадь</span><b>${num(r.area)} м²</b></div><div><span>Вес</span><b>${num(r.weight, 2)} кг</b></div>
     <div><span>Цена (авто)</span><b>${money(unit)} грн</b></div></div>
@@ -145,13 +167,14 @@ function rebuild() {
     resizeView(); frame(view.model, view.cam); view.scene.add(view.model);
   } catch (e) { console.error(e); }
 }
-function setType(id) {
-  cur.type = TYPES.find(t => t.id === id); cur.p = defaultsOf(cur.type); cur.editId = null;
+function setEntry(i) {
+  const e = ENTRIES[i]; cur.entry = i; cur.type = TYPES.find(t => t.id === e.id);
+  cur.p = Object.assign(defaultsOf(cur.type), e.preset); cur.lock = Object.keys(e.preset); cur.editId = null;
   $('#add').textContent = '＋ Добавить в КП'; $('#cancel').hidden = true; $('#price').value = '';
   renderTypes(); renderForm(); update();
 }
 
-$('#types').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setType(b.dataset.t); });
+$('#types').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setEntry(+b.dataset.i); });
 $('#fields').addEventListener('input', e => {
   const k = e.target.dataset.k; if (!k) return;
   const f = cur.type.fields.find(f => f.k === k);
@@ -174,14 +197,14 @@ $('#add').addEventListener('click', () => {
   cur.editId = null; $('#add').textContent = '＋ Добавить в КП'; $('#cancel').hidden = true; $('#price').value = '';
   save(); renderKP();
 });
-$('#cancel').addEventListener('click', () => setType(cur.type.id));
+$('#cancel').addEventListener('click', () => setEntry(cur.entry));
 
 /* ---------- КП ---------- */
 function rowsData() {
   const L = state.set, disc = (+L.disc || 0) / 100;
   return state.items.map(it => {
     const type = TYPES.find(t => t.id === it.type), r = compute(type, it.p);
-    const price = it.price != null ? it.price : Math.round(r.area * rateFor(it.p.t) * 100) / 100;
+    const price = it.price != null ? it.price : autoPrice(type, it.p, r.area);
     const pd = Math.round(price * (1 - disc) * 100) / 100;
     return { it, name: type.label(it.p), th: it.p.t, r, price, pd, sr: price * it.qty, sd: pd * it.qty, area: r.area * it.qty, w: r.weight * it.qty };
   });
@@ -233,7 +256,8 @@ $('#tbl').addEventListener('click', e => {
   const b = e.target.closest('button[data-act]'); if (!b) return;
   const id = b.closest('tr').dataset.id, it = state.items.find(x => x.id == id);
   if (b.dataset.act === 'del') { state.items = state.items.filter(x => x !== it); save(); renderKP(); return; }
-  cur.type = TYPES.find(t => t.id === it.type); cur.p = { ...it.p }; cur.editId = it.id;
+  cur.type = TYPES.find(t => t.id === it.type); cur.p = { ...it.p }; cur.editId = it.id; cur.lock = [];
+  cur.entry = ENTRIES.findIndex(e => e.id === it.type && Object.entries(e.preset).every(([k, v]) => it.p[k] === v)); 
   $('#qty').value = it.qty; $('#section').value = it.section; $('#price').value = it.price || '';
   $('#add').textContent = '✓ Сохранить изменения'; $('#cancel').hidden = false;
   renderTypes(); renderForm(); update(); $('#constructor').scrollIntoView({ behavior: 'smooth' });
@@ -247,7 +271,11 @@ function bindDoc() {
     el.addEventListener('input', () => { state.doc[k] = el.tagName === 'INPUT' ? el.value : el.innerText; save(); });
   });
 }
+function snvTable() {
+  $('#snvPrices').innerHTML = SNV_D.map(d => `<label>Ø${d}<input type="number" data-set="snv/${d}" placeholder="авто"></label>`).join('');
+}
 function bindSettings() {
+  snvTable();
   document.querySelectorAll('[data-set]').forEach(el => {
     const path = el.dataset.set.split('/'), get = () => path.reduce((o, k) => o[k], state.set);
     el.value = get();

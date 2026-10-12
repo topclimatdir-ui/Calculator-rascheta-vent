@@ -156,7 +156,7 @@ const res = (area, weight, dev, extra = {}) => Object.assign({ area, weight, dev
 
 /* 1. Прямой воздуховод */
 def({
-  id: 'duct', name: 'Прямой воздуховод',
+  id: 'duct', name: 'Прямой воздуховод', hidden: true,
   fields: [selF('shape', 'Сечение', SH, 'round'), ...dims('', '', 'shape', 315, 500, 300), numF('L', 'Длина L, мм', 1250)],
   label: p => `Воздуховод ${p.shape === 'round' ? 'круглый' : 'прямоугольный'} ${dimStr(shapeOf(p))}, L=${p.L}`,
   calc(p) {
@@ -164,6 +164,35 @@ def({
     return res(a, wt(a, p.t), [`Заготовка: ${n1(P)} × ${n1(p.L)} мм (${s.t === 'round' ? 'π·D' : '2·(A+B)'} × L)`]);
   },
   build(p) { const g = new THREE.Group(), s = shapeOf(p); put(g, tube(s, -p.L / 2, p.L / 2), { flat: isFlat(s) }); return g; },
+});
+
+/* 1а. Короб, труба прямошовная, труба СНВ */
+const ductCalc = function (p) {
+  const s = shapeOf(p), P = perim(s), a = m2(P * p.L);
+  return res(a, wt(a, p.t), [`Заготовка: ${n1(P)} × ${n1(p.L)} мм (${s.t === 'round' ? 'π·D' : '2·(A+B)'} × L)`]);
+};
+const ductBuild = function (p) { const g = new THREE.Group(), s = shapeOf(p); put(g, tube(s, -p.L / 2, p.L / 2), { flat: isFlat(s) }); return g; };
+def({
+  id: 'box', name: 'Короб прямоугольный', fixed: { shape: 'rect' },
+  fields: [numF('A', 'Ширина A, мм', 500, 20), numF('B', 'Высота B, мм', 300, 20), numF('L', 'Длина L, мм', 1250)],
+  label: p => `Короб прямоугольный ${p.A}×${p.B}, L=${p.L}`, calc: ductCalc, build: ductBuild,
+});
+def({
+  id: 'pipe', name: 'Труба прямошовная', fixed: { shape: 'round' },
+  fields: [numF('D', 'Диаметр D, мм', 315, 20), numF('L', 'Длина L, мм', 1250)],
+  label: p => `Труба прямошовная Ø${p.D}, L=${p.L}`, calc: ductCalc, build: ductBuild,
+});
+def({
+  id: 'snv', name: 'Труба СНВ (спирально-навивная)', fixed: { shape: 'round' }, perMp: true,
+  fields: [numF('D', 'Диаметр D, мм', 315, 20), numF('L', 'Длина L, мм', 3000)],
+  label: p => `Труба СНВ Ø${p.D}, L=${p.L}`,
+  calc(p) { const r = ductCalc.call(this, p); r.dev.unshift('Спирально-навивная, цена за 1 м.п.'); return r; },
+  build(p) {
+    const g = ductBuild(p), r = p.D / 2 + 0.6, pitch = Math.max(40, p.D * 0.35), turns = p.L / pitch, n = Math.ceil(turns * 48), pts = [];
+    for (let i = 0; i <= n; i++) { const u = i / n, a = 2 * PI * turns * u; pts.push(new THREE.Vector3(r * Math.cos(a), r * Math.sin(a), -p.L / 2 + p.L * u)); }
+    g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: VIEW.style === 'draw' ? 0x111111 : 0x5b6c80 })));
+    return g;
+  },
 });
 
 /* 2. Отвод / колено */
@@ -514,6 +543,7 @@ def({
 function defaultsOf(type) {
   const p = {};
   type.fields.forEach(f => { p[f.k] = f.v; });
+  Object.assign(p, type.fixed || {});
   p.t = type.t0 || SET.t;
   return p;
 }

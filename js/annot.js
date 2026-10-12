@@ -98,6 +98,7 @@ const ANN = {
       lin(V(p.A / 2, p.B / 2, 0), V(p.A / 2, p.B / 2, top + p.hn), V(k, 0, 0), 'H=' + (top + p.hn))];
   },
 };
+ANN.box = ANN.pipe = ANN.snv = ANN.duct;
 TYPES.forEach(t => { t.annot = ANN[t.id]; });
 
 /* рисование размеров на 2D-холсте поверх 3D-картинки */
