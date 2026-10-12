@@ -804,6 +804,7 @@ def({
     const g = new THREE.Group(), s = shapeOf(p), G = this.geom(p);
     put(g, G.body, { flat: isFlat(s) });
     if (G.lip) put(g, G.lip, { flat: true, color: VIEW.style === 'draw' ? 0xf4f6f9 : 0x8fa7bf });
+    if (s.t === 'round' && p.Lb > SET.zig + 10) zig(g, s.d / 2, p.Lb - SET.zig);   // зиг от свободного края врезки
     if (p.end === 'saddle') {
       const r = p.Dm / 2, len = (s.t === 'round' ? s.d : s.a) + 200;
       const pipe = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 64, 1, true), mat(COL.steel, { transparent: true, opacity: 0.28, depthWrite: false }));
