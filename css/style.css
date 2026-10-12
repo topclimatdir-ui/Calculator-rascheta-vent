@@ -57,7 +57,7 @@ h2 input[type=date], .kv input[type=date] { width: auto; border: 0; padding: 0; 
 .grid tr.tot td { font-weight: 700; background: #f4f7fb; }
 .grid .empty { text-align: center; color: #8793a3; padding: 24px; }
 .nm { display: flex; gap: 8px; align-items: center; position: relative; }
-.nm img { width: 160px; height: 120px; object-fit: contain; flex: none; }
+.nm img { width: 200px; height: 150px; object-fit: contain; flex: none; }
 .nm small { display: block; color: #6a7686; }
 .rowbtn { margin-left: auto; display: flex; gap: 2px; } .rowbtn button { padding: 1px 6px; font-size: 12px; }
 .grid input { border: 0; background: transparent; padding: 2px; text-align: right; width: 82px; }

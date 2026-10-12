@@ -105,14 +105,14 @@ function drawDims(ctx, cam, w, h, model, dims, fs) {
   if (!dims || !dims.length) return;
   cam.updateMatrixWorld(true); model.updateMatrixWorld(true);
   const P = v => { const q = model.localToWorld(v.clone()).project(cam); return { x: (q.x + 1) / 2 * w, y: (1 - q.y) / 2 * h }; };
-  ctx.save(); ctx.lineWidth = 1; ctx.strokeStyle = ctx.fillStyle = '#1f5fbf'; ctx.font = `${fs}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.save(); ctx.lineWidth = Math.max(1, fs / 12); ctx.strokeStyle = ctx.fillStyle = '#1f5fbf'; ctx.font = `${fs}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   const text = (x, y, s) => {
     const tw = ctx.measureText(s).width + 6;
     ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.fillRect(x - tw / 2, y - fs / 2 - 1, tw, fs + 2); ctx.fillStyle = '#1f5fbf'; ctx.fillText(s, x, y);
   };
   const arrow = (x, y, dx, dy) => {
     const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
-    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - dx * 7 + dy * 2.5, y - dy * 7 - dx * 2.5); ctx.lineTo(x - dx * 7 - dy * 2.5, y - dy * 7 + dx * 2.5); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - dx * fs * .6 + dy * fs * .22, y - dy * fs * .6 - dx * fs * .22); ctx.lineTo(x - dx * fs * .6 - dy * fs * .22, y - dy * fs * .6 + dx * fs * .22); ctx.closePath(); ctx.fill();
   };
   dims.forEach(d => {
     if (d.pt) { const q = P(d.pt); text(q.x, q.y, d.txt); return; }

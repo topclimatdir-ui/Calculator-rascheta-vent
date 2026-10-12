@@ -49,9 +49,11 @@ function makeScene() {
 }
 function frame(root, cam) {
   root.updateMatrixWorld(true);
-  const b = new THREE.Box3().setFromObject(root), c = b.getCenter(new THREE.Vector3()), sph = b.getBoundingSphere(new THREE.Sphere());
+  const b = new THREE.Box3().setFromObject(root), m = root.userData.m;
+  (root.userData.dims || []).forEach(d => (d.pt ? [d.pt] : [d.a, d.b, d.a.clone().add(d.off), d.b.clone().add(d.off)]).forEach(v => b.expandByPoint(m.localToWorld(v.clone()))));
+  const c = b.getCenter(new THREE.Vector3()), sph = b.getBoundingSphere(new THREE.Sphere());
   root.position.sub(c);
-  const dist = sph.radius / Math.sin(cam.fov * PI / 360) * 1.3;
+  const dist = sph.radius / Math.sin(cam.fov * PI / 360) * 1.12;
   cam.position.set(0.8, 0.6, 1).normalize().multiplyScalar(dist);
   cam.near = dist / 100; cam.far = dist * 20; cam.updateProjectionMatrix(); cam.lookAt(0, 0, 0);
   return dist;
@@ -87,20 +89,20 @@ const thumb = { renderer: null };
 function snapshot(type, p) {
   if (!thumb.renderer) {
     thumb.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
-    thumb.renderer.setSize(360, 270); thumb.scene = makeScene(); thumb.cam = new THREE.PerspectiveCamera(35, 360 / 270, 1, 1000);
-    thumb.cv = document.createElement('canvas'); thumb.cv.width = 360; thumb.cv.height = 270;
+    thumb.renderer.setPixelRatio(1); thumb.renderer.setSize(960, 720); thumb.scene = makeScene(); thumb.cam = new THREE.PerspectiveCamera(35, 960 / 720, 1, 1000);
+    thumb.cv = document.createElement('canvas'); thumb.cv.width = 960; thumb.cv.height = 720;
   }
   const root = buildModel(type, p); frame(root, thumb.cam); thumb.scene.add(root);
   thumb.renderer.render(thumb.scene, thumb.cam);
   const c = thumb.cv.getContext('2d');
-  c.fillStyle = '#fff'; c.fillRect(0, 0, 360, 270); c.drawImage(thumb.renderer.domElement, 0, 0);
-  drawDims(c, thumb.cam, 360, 270, root.userData.m, root.userData.dims, 11);
+  c.fillStyle = '#fff'; c.fillRect(0, 0, 960, 720); c.drawImage(thumb.renderer.domElement, 0, 0);
+  drawDims(c, thumb.cam, 960, 720, root.userData.m, root.userData.dims, 28);
   thumb.scene.remove(root);
   return thumb.cv.toDataURL('image/png');
 }
 
 /* ---------- конструктор ---------- */
-VIEW.style = 'draw';
+VIEW.style = 'metal';
 const cur = { type: TYPES[0], p: defaultsOf(TYPES[0]), editId: null };
 let timer;
 
