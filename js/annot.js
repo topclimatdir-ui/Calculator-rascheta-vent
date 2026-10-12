@@ -68,9 +68,11 @@ const ANN = {
       lin(V(Rk, 0, 0), V(Rk, 0, zc + hc), V(k, 0, 0), 'H=' + n1(zc + hc))];
   },
   tsagi(p) {
-    const q = TYPES.find(t => t.id === 'tsagi').parts(p), k = kk(p.D, q.Dz);
-    return [lin(V(-p.D / 2, 0, 0), V(p.D / 2, 0, 0), V(0, -k, 0), 'Ø' + p.D), lin(V(-q.Dc / 2, 0, q.zc0), V(q.Dc / 2, 0, q.zc0), V(0, -k, 0), 'Ø' + n1(q.Dc)),
-      lin(V(q.Dz / 2, 0, 0), V(q.Dz / 2, 0, q.zz1), V(k, 0, 0), 'H=' + n1(q.zz1))];
+    const q = TYPES.find(t => t.id === 'tsagi').parts(p), k = kk(p.D, q.D1);
+    const out = [lin(V(-p.D / 2, 0, 0), V(p.D / 2, 0, 0), V(0, -k, 0), 'Ø' + p.D), lin(V(-q.D1 / 2, 0, q.zk), V(q.D1 / 2, 0, q.zk), V(0, -k, 0), 'Ø' + n1(q.D1)),
+      lin(V(q.D1 / 2, 0, 0), V(q.D1 / 2, 0, q.zt), V(k, 0, 0), 'H=' + n1(q.zt))];
+    if (q.hs > 0) out.push(lin(V(-p.D / 2, 0, 0), V(-p.D / 2, 0, q.hs), V(-k, 0, 0), String(q.hs)));
+    return out;
   },
   exhaust45(p) {
     const k = kk(p.D);
@@ -96,8 +98,9 @@ const ANN = {
     return [...sec({ t: 'rect', a: p.A, b: p.B }, h + 40, k), lin(V(0, p.B / 2, -h), V(0, p.B / 2, h), V(0, k, 0), 'L=' + p.L)];
   },
   clamp(p) {
-    const r = p.D / 2 + p.t, k = kk(p.D);
-    return [lin(V(-r, 0, p.w / 2), V(r, 0, p.w / 2), V(0, -k, 0), 'Ø' + p.D), lin(V(0, r, -p.w / 2), V(0, r, p.w / 2), V(0, k, 0), 'w=' + p.w)];
+    const r = p.D / 2 + p.t, k = kk(p.D), out = [lin(V(-r, 0, p.w / 2), V(r, 0, p.w / 2), V(0, -k, 0), 'Ø' + p.D), lin(V(-r, 0, -p.w / 2), V(-r, 0, p.w / 2), V(-k * 0.7, 0, 0), 'w=' + p.w)];
+    if (p.hang === 'm8') out.push(lin(V(0, r, p.w / 2 + 12), V(0, r + p.hl, p.w / 2 + 12), V(0, 0, k * 0.6), 'М8 L=' + p.hl));
+    return out;
   },
   hood(p) {
     const k = kk(p.A, p.B) * 0.8, top = p.hs + p.H;

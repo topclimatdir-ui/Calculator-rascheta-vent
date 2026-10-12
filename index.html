@@ -59,7 +59,7 @@
     <button id="logoReset" type="button">Вернуть логотип</button>
     <button id="clear" type="button">Очистить КП</button>
   </div>
-  <h3 class="sub">Труба СНВ: цена за 1 м.п., грн (пусто = площадь × цена за м²)</h3>
+  <h3 class="sub">Труба СНВ: цена за 1 м.п., грн (пусто = автоматически: площадь 1 м.п. × цена за м², значение показано серым)</h3>
   <div id="snvPrices" class="fields set"></div>
   <p class="hint">Цены в КП указываются с НДС. Цены за м² — стартовые значения, подставьте свои. Цену любой строки можно поправить прямо в таблице КП.</p>
 </details>
@@ -75,10 +75,10 @@
     <span data-key="b3" contenteditable="plaintext-only"></span><span data-key="b4" contenteditable="plaintext-only"></span>
   </div>
   <div id="kpMeta" class="meta">
-    <h2><span data-i="title"></span> <span data-i="no"></span> <span class="inl" data-key="kpno" contenteditable="plaintext-only" data-ph="____"></span>
-      <span data-i="from"></span> <input type="date" data-key="date"></h2>
-    <div class="line"><b data-i="obj"></b> <span class="fill" data-key="obj" contenteditable="plaintext-only" data-ph="Назва / адреса об'єкта"></span></div>
-    <div class="line"><b data-i="cust"></b> <span class="fill" data-key="cust" contenteditable="plaintext-only" data-ph="ПІБ / назва замовника"></span></div>
+    <h2><span data-tr="title"></span> <span data-tr="no"></span> <span class="inl" data-key="kpno" contenteditable="plaintext-only" data-ph="____"></span>
+      <span data-tr="from"></span> <input type="date" data-key="date"></h2>
+    <div class="line"><b data-tr="obj"></b> <span class="fill" data-key="obj" contenteditable="plaintext-only" data-ph="Назва / адреса об'єкта"></span></div>
+    <div class="line"><b data-tr="cust"></b> <span class="fill" data-key="cust" contenteditable="plaintext-only" data-ph="ПІБ / назва замовника"></span></div>
     <div class="intro" data-key="intro" contenteditable="plaintext-only"></div>
   </div>
 
@@ -86,21 +86,21 @@
 
   <div class="bottom">
     <div class="conds">
-      <h3 data-i="conds"></h3>
+      <h3 data-tr="conds"></h3>
       <div class="kv"><span>Термін виконання:</span><i data-key="term" contenteditable="plaintext-only"></i></div>
       <div class="kv"><span>Умови оплати:</span><i data-key="pay" contenteditable="plaintext-only"></i></div>
       <div class="kv"><span>Умови поставки:</span><i data-key="delivery" contenteditable="plaintext-only"></i></div>
       <div class="kv"><span>Гарантія:</span><i data-key="warr" contenteditable="plaintext-only"></i></div>
       <div class="kv"><span>Пропозиція дійсна до:</span><input type="date" data-key="valid"></div>
     </div>
-    <div class="summary"><h3 data-i="total"></h3><table id="sum"></table></div>
+    <div class="summary"><h3 data-tr="total"></h3><table id="sum"></table></div>
   </div>
 
-  <div class="comments"><h3 data-i="comm"></h3><div class="cbox" data-key="comments" contenteditable="plaintext-only"></div></div>
+  <div class="comments"><h3 data-tr="comm"></h3><div class="cbox" data-key="comments" contenteditable="plaintext-only"></div></div>
 
   <div class="sign">
     <div><div data-key="boss" contenteditable="plaintext-only"></div><div data-key="bossName" contenteditable="plaintext-only"></div></div>
-    <div class="mp"><span data-i="mp"></span><br><small data-i="sign"></small></div>
+    <div class="mp"><span data-tr="mp"></span><br><small data-tr="sign"></small></div>
   </div>
   <div class="foot"><span data-key="foot1" contenteditable="plaintext-only"></span><span data-key="foot2" contenteditable="plaintext-only"></span></div>
 </section>

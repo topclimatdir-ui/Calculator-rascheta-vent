@@ -198,10 +198,10 @@ function update() {
   if (!ok) { $('#result').innerHTML = ''; return; }
   const r = compute(cur.type, cur.p);
   cur.r = r;
-  const unit = autoPrice(cur.type, cur.p, r);
+  const unit = autoPrice(cur.type, cur.p, r), mp1 = cur.type.perMp && cur.p.L === 1000;
   $('#result').innerHTML = `
-    <div class="kpis"><div><span>Площадь</span><b>${num(r.area)} м²</b></div><div><span>Вес</span><b>${num(r.weight, 2)} кг</b></div>
-    <div><span>Цена (авто)</span><b>${money(unit)} грн</b></div></div>
+    <div class="kpis"><div><span>Площадь${mp1 ? ' за 1 м.п.' : ''}</span><b>${num(r.area)} м²</b></div><div><span>Вес${mp1 ? ' за 1 м.п.' : ''}</span><b>${num(r.weight, 2)} кг</b></div>
+    <div><span>Цена${mp1 ? ' за 1 м.п.' : ''} (авто)</span><b>${money(unit)} грн</b></div></div>
     <ul class="dev">${r.dev.map(d => `<li>${esc(d)}</li>`).join('')}</ul>`;
   $('#price').placeholder = money(unit);
   clearTimeout(timer);
@@ -238,7 +238,7 @@ $('#add').addEventListener('click', () => {
   if (!numericOk()) return;
   const sec = $('#section').value.trim() || state.sections[0];
   const manual = parseFloat($('#price').value.replace(',', '.'));
-  const it = { id: cur.editId || Date.now(), type: cur.type.id, p: { ...cur.p }, qty: Math.max(1, parseInt($('#qty').value) || 1),
+  const it = { id: cur.editId || Date.now(), type: cur.type.id, p: { ...cur.p }, qty: qtyOf(cur.type, $('#qty').value),
     price: isFinite(manual) && manual > 0 ? manual : null, section: sec, thumb: snapshot(cur.type, cur.p) };
   if (!state.sections.includes(sec)) state.sections.push(sec);
   const i = state.items.findIndex(x => x.id === cur.editId);
@@ -253,11 +253,13 @@ function rowsData() {
   const L = state.set, disc = (+L.disc || 0) / 100;
   return state.items.map(it => { try { return rowOf(it, disc); } catch (e) { console.error(e); return null; } }).filter(Boolean);
 }
+/* количество: целые штуки, а для погонных метров (СНВ) допускаются дробные значения */
+const qtyOf = (type, v) => { const x = parseFloat(String(v).replace(',', '.')); return type && type.perMp ? Math.max(0.1, x || 1) : Math.max(1, parseInt(v) || 1); };
 function rowOf(it, disc) {
   const type = TYPES.find(t => t.id === it.type), r = compute(type, it.p);
   const price = it.price != null ? it.price : autoPrice(type, it.p, r);
   const pd = Math.round(price * (1 - disc) * 100) / 100;
-  return { it, name: type.label(it.p), th: it.p.t, r, price, pd, sr: price * it.qty, sd: pd * it.qty, area: r.area * it.qty, w: r.weight * it.qty };
+  return { it, unit: type.unit && it.p.L === 1000 ? type.unit : null, name: type.label(it.p), th: it.p.t, r, price, pd, sr: price * it.qty, sd: pd * it.qty, area: r.area * it.qty, w: r.weight * it.qty };
 }
 function renderKP() {
   const T = TXT[state.set.lang], rows = rowsData();
@@ -273,7 +275,7 @@ function renderKP() {
         <td class="c">${no}</td>
         <td class="nm"><img src="${r.it.thumb}" alt=""><div><b>${esc(r.name)}</b><small>δ ${String(r.th).replace('.', ',')} мм</small></div>
           <span class="rowbtn no-print"><button data-act="sk" title="Печать эскиза для заказчика">🖨</button><button data-act="edit" title="Изменить">✎</button><button data-act="del" title="Удалить">✕</button></span></td>
-        <td class="c"><input class="qty" type="number" min="1" value="${r.it.qty}" data-f="qty"> <small>${T.unit}</small></td>
+        <td class="c"><input class="qty" type="number" min="${r.unit ? 0.1 : 1}" step="${r.unit ? 'any' : 1}" value="${r.it.qty}" data-f="qty"> <small>${r.unit || T.unit}</small></td>
         <td class="r"><input class="pr" type="text" value="${money(r.price)}" data-f="price"></td>
         <td class="r">${money(r.sr)}</td><td class="r">${money(r.pd)}</td><td class="r">${money(r.sd)}</td>
         <td class="r">${num(r.area)}${r.r.flange ? `<small class="fa">изд. ${num(r.r.areaSheet * r.it.qty)}<br>фл. ${num(r.r.flange.area * r.it.qty)}</small>` : ''}</td><td class="r">${num(r.w, 2)}</td></tr>`;
@@ -291,14 +293,14 @@ function renderKP() {
     <tr><td>${T.vat} ${state.set.vat}%</td><td class="r">${money(vat)}</td></tr>
     <tr><td>${T.sumArea}</td><td class="r">${num(S.area)}</td></tr><tr><td>${T.sumW}</td><td class="r">${num(S.w, 2)}</td></tr>`;
   $('#sectionList').innerHTML = state.sections.map(s => `<option value="${esc(s)}">`).join('');
-  document.querySelectorAll('[data-i]').forEach(el => { el.textContent = T[el.dataset.i]; });
+  document.querySelectorAll('[data-tr]').forEach(el => { el.textContent = T[el.dataset.tr]; });   // подписи КП (не путать с кнопками изделий data-i)
   $('#kpMeta').dataset.lang = state.set.lang;
   state._rows = rows; state._S = S;
 }
 $('#tbl').addEventListener('change', e => {
   const tr = e.target.closest('tr[data-id]'); if (!tr) return;
   const it = state.items.find(x => x.id == tr.dataset.id), f = e.target.dataset.f;
-  if (f === 'qty') it.qty = Math.max(1, parseInt(e.target.value) || 1);
+  if (f === 'qty') it.qty = qtyOf(TYPES.find(t => t.id === it.type), e.target.value);
   if (f === 'price') { const v = parseFloat(e.target.value.replace(/\s/g, '').replace(',', '.')); it.price = v > 0 ? v : null; }
   save(); renderKP();
 });
@@ -320,7 +322,7 @@ function printSketch(type, p, qty) {
   const rows = type.fields.filter(f => !f.show || f.show(p)).filter(f => !(f.k === 'shape' || f.k === 's1' || f.k === 's2') || true).map(f => {
     const v = f.sel ? (f.sel.find(o => o[0] === p[f.k]) || [, p[f.k]])[1] : p[f.k];
     return `<tr><td>${esc(f.l)}</td><td>${esc(v)}</td></tr>`;
-  }).join('') + `<tr><td>Толщина металла, мм</td><td>${String(p.t).replace('.', ',')}</td></tr>` + (qty ? `<tr><td>${T.qty}</td><td>${qty} ${T.unit}</td></tr>` : '') +
+  }).join('') + `<tr><td>Толщина металла, мм</td><td>${String(p.t).replace('.', ',')}</td></tr>` + (qty ? `<tr><td>${T.qty}</td><td>${qty} ${type.unit && p.L === 1000 ? type.unit : T.unit}</td></tr>` : '') +
     (r.flange ? `<tr><td>Квадратура изделия, м²</td><td>${num(r.areaSheet)}</td></tr><tr><td>Фланец ${r.flange.type} (шинорейка), м²</td><td>${num(r.flange.area)}</td></tr><tr><td>Уголки ${r.flange.type}, шт.</td><td>${r.flange.corners}</td></tr>` : '') + `<tr><td>${T.area}${r.flange ? ' с фланцем' : ''}</td><td>${num(r.area)}</td></tr><tr><td>${T.w}</td><td>${num(r.weight, 2)}</td></tr>`;
   $('#sketch').innerHTML = `<div class="skh"><img src="${state.logo || LOGO}" alt=""><div><b>${esc(D.company)}</b><br><small>${esc(D.legal)}</small></div><div class="skc">${esc(D.contacts).replace(/\n/g, '<br>')}</div></div>
     <h2>${T.sk}</h2><p class="skm">${T.obj} ${esc(D.obj)} &nbsp; ${T.cust} ${esc(D.cust)}</p><h3>${esc(type.label(p))}</h3>
@@ -342,7 +344,13 @@ function bindDoc() {
   });
 }
 function snvTable() {
-  $('#snvPrices').innerHTML = SNV_D.map(d => `<label>Ø${d}<input type="number" data-set="snv/${d}" placeholder="авто"></label>`).join('');
+  $('#snvPrices').innerHTML = SNV_D.map(d => `<label>Ø${d}<input type="number" data-set="snv/${d}"></label>`).join('');
+  snvPlaceholders();
+}
+function snvPlaceholders() {   // серым показываем цену за 1 м.п., которая получается автоматически (площадь × цена за м²)
+  document.querySelectorAll('#snvPrices input').forEach(el => {
+    const d = +el.dataset.set.split('/')[1]; el.placeholder = money(Math.PI * d / 1000 * rateFor(SET.t));
+  });
 }
 function bindSettings() {
   snvTable();
@@ -352,7 +360,7 @@ function bindSettings() {
     el.addEventListener('input', () => {
       let o = state.set; for (let i = 0; i < path.length - 1; i++) o = o[path[i]];
       o[path.at(-1)] = el.type === 'number' ? parseFloat(el.value) || 0 : el.value;
-      syncSet(); save(); renderKP(); update();
+      syncSet(); save(); snvPlaceholders(); renderKP(); update();
     });
   });
 }

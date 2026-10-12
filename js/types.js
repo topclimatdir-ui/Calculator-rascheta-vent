@@ -149,6 +149,15 @@ function zigs(g, sh, z0, z1, ox = 0, oy = 0) {   // зиги на расстоя
   if (sh.t !== 'round' || !(SET.zig > 0) || z1 - z0 < 2 * SET.zig) return;
   zig(g, sh.d / 2, z0 + SET.zig, ox, oy); zig(g, sh.d / 2, z1 - SET.zig, ox, oy);
 }
+/* валик на корпусе (дефлектор): тор радиусом rr и две линии по бокам — «двойная линия» как на чертеже */
+function bead(g, r, z, rr) {
+  const R = r + rr * 0.3, zl = rr * 0.8, rl = R + Math.sqrt(rr * rr - zl * zl) + 0.3, draw = VIEW.style === 'draw';
+  const m = new THREE.Mesh(new THREE.TorusGeometry(R, rr, 10, 120),
+    mat(draw ? 0xeef1f5 : 0x8aa3bc, { polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }));
+  m.position.z = z; g.add(m);
+  const lm = new THREE.LineBasicMaterial({ color: draw ? 0x111111 : COL.edge });
+  [-1, 1].forEach(s => g.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(ringPts(rl, z + s * zl, 120)), lm)));
+}
 
 /* ---------- описания полей ---------- */
 const SH = [['round', 'Круглое'], ['rect', 'Прямоугольное']];
@@ -216,10 +225,14 @@ def({
   label: p => `Труба прямошовная Ø${p.D}, L=${p.L}`, calc: ductCalc, build: ductBuild,
 });
 def({
-  id: 'snv', name: 'Труба СНВ (спирально-навивная)', fixed: { shape: 'round' }, perMp: true,
-  fields: [numF('D', 'Диаметр D, мм', 315, 20), numF('L', 'Длина L, мм', 3000)],
-  label: p => `Труба СНВ Ø${p.D}, L=${p.L}`,
-  calc(p) { const r = ductCalc.call(this, p); r.dev.unshift('Спирально-навивная, цена за 1 м.п.'); return r; },
+  id: 'snv', name: 'Труба СНВ (спирально-навивная)', fixed: { shape: 'round', L: 1000 }, perMp: true, unit: 'м.п.',
+  fields: [numF('D', 'Диаметр D, мм', 315, 20)],
+  label: p => `Труба СНВ Ø${p.D}` + (p.L === 1000 ? ' (1 м.п.)' : `, L=${p.L}`),
+  calc(p) {
+    const r = ductCalc.call(this, p);
+    r.dev.unshift(p.L === 1000 ? 'Спирально-навивная. Площадь, вес и цена указаны за 1 м.п., количество в КП — в метрах погонных' : 'Спирально-навивная, цена за 1 м.п.');
+    return r;
+  },
   build(p) {
     const g = ductBuild(p), r = p.D / 2 + 0.6, pitch = Math.max(40, p.D * 0.35), turns = p.L / pitch, n = Math.ceil(turns * 48), pts = [];
     for (let i = 0; i <= n; i++) { const u = i / n, a = 2 * PI * turns * u; pts.push(new THREE.Vector3(r * Math.cos(a), r * Math.sin(a), -p.L / 2 + p.L * u)); }
@@ -356,15 +369,23 @@ function teeBranch(p, a) {
   return { geom: ringsGeom([pts.map(q => q.pb), pts.map(q => q.base.clone().addScaledVector(d, tTop))]), tTop, ext, zExt, tooWide };
 }
 /* отверстие в стенке магистрали под ответвление: тёмная «заплатка» по контуру врезки на наружной и внутренней стороне стенки */
-function teeHole(p, a, lift) {
+function teeHole(p, a, lift) {   // набор колец от края отверстия к центру (на стенке магистрали)
   const s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'), sin = Math.sin(a), cos = Math.cos(a), sg = sin < 0 ? -1 : 1, half = teeHalf(p);
   const d = new THREE.Vector3(sin, 0, cos), xp = new THREE.Vector3(cos, 0, -sin), O = new THREE.Vector3(sg * half, 0, 0);
-  const rings = [1, 0.8, 0.6, 0.4, 0.2, 0.02].map(f => profilePts(s2, 0).map(v => {
+  return [1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.02].map(f => profilePts(s2, 0).map(v => {
     v.x *= f; v.y *= f;
     const xw = s1.t === 'round' ? sg * Math.sqrt(Math.max(0, half * half - v.y * v.y)) : sg * half, t = (xw - O.x - v.x * cos) / sin;
     const q = O.clone().addScaledVector(xp, v.x).add(new THREE.Vector3(0, v.y, 0)).addScaledVector(d, t); q.x += sg * lift; return q;
   }));
-  return ringsGeom(rings);
+}
+function teeHoleMeshes(p, a, lift) {   // вид внутрь магистрали: мягкий градиент без чёрного (по краю светлее, к центру глубже)
+  const rings = teeHole(p, a, lift), draw = VIEW.style === 'draw', c0 = new THREE.Color(draw ? 0xdfe4ea : 0x8497ad), c1 = new THREE.Color(draw ? 0xaeb8c4 : 0x56677c);
+  const out = [];
+  for (let k = 0; k < rings.length - 1; k++) {
+    const mt = new THREE.MeshBasicMaterial({ color: c0.clone().lerp(c1, k / (rings.length - 2)), side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    out.push(new THREE.Mesh(ringsGeom([rings[k], rings[k + 1]]), mt));
+  }
+  return out;
 }
 const teeAngles = p => { const al = Math.min(Math.max(p.ang, 20), 160) * PI / 180; return p.kind === 'cross' ? [al, -al] : [al]; };
 /* длина магистрали: по умолчанию по 80 мм с каждой стороны от места врезки (arm); у старых позиций — прежнее поле L */
@@ -401,8 +422,7 @@ def({
     if (!ghost) zigs(g, s1, -L / 2, L / 2);
     teeAngles(p).forEach(a => {
       const br = teeBranch(p, a); put(g, br.geom, { flat: isFlat(s2) });
-      const dark = new THREE.MeshBasicMaterial({ color: 0x10151b, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
-      [0.6, -0.6].forEach(l => g.add(new THREE.Mesh(teeHole(p, a, l), dark)));   // отверстие в стенке магистрали
+      [0.6, -0.6].forEach(l => teeHoleMeshes(p, a, l).forEach(m => g.add(m)));   // отверстие в стенке магистрали
       if (s2.t === 'round' && p.Lb > SET.zig + 10) { const b = new THREE.Group(); zig(b, s2.d / 2, br.tTop - SET.zig); b.applyMatrix4(teeFrame(p, a)); g.add(b); }
     });
     return g;
@@ -509,32 +529,55 @@ def({
   },
 });
 
-/* 7. Дефлектор Цаги */
+/* 7. Дефлектор ЦАГИ. Устройство по чертежу (Вородиз Вент): патрубок Ø D, он же внутренняя труба; корпус — цилиндр Ø D1
+   с валиками у обоих краёв и нижним конусом к патрубку; внутри воронка-диффузор от трубы к стенке корпуса;
+   сверху зонт (конус, вершина на уровне кромки корпуса) с воротником Ø D2 на четырёх S-образных лапках.
+   Пропорции сняты с чертежа: D1 = 1,67 D, D2 = 1,43 D, H = 1,63 D, H2 = 1,15 D, H1 = 0,93 D (уточним по вашим размерам). */
 def({
-  id: 'tsagi', name: 'Дефлектор Цаги', up: true,
-  fields: [numF('D', 'Диаметр патрубка D, мм', 315)],
-  label: p => `Дефлектор Цаги Ø${p.D}`,
+  id: 'tsagi', name: 'Дефлектор ЦАГИ', up: true,
+  fields: [numF('D', 'Диаметр патрубка D, мм', 315), numF('hs', 'Длина патрубка снизу, мм', 150, 0)],
+  label: p => `Дефлектор ЦАГИ Ø${p.D}`,
   parts(p) {
-    const D = p.D;
-    return { h0: 0.3 * D, h1: 0.9 * D, Dd: 1.3 * D, Dc: 1.5 * D, zc0: 0.55 * D, zc1: 1.15 * D, Dz: 1.9 * D, zz0: 1.25 * D, zz1: 1.55 * D };
+    const D = p.D, hs = p.hs === undefined || p.hs === '' ? 150 : Math.max(0, +p.hs || 0), r = x => Math.round(x * D);   // размеры круглые, в мм
+    return {
+      hs, D1: r(1.67), D2: r(1.43),
+      zs: hs + r(0.10),      // нижний конус корпуса начинается на патрубке…
+      zk: hs + r(0.485),     // …и доходит до низа цилиндра корпуса
+      zp: hs + r(0.93),      // верх внутренней трубы (начало воронки)
+      zf: hs + r(1.08),      // воронка упирается в стенку корпуса
+      zc: hs + r(1.33),      // низ воротника зонта
+      zu: hs + r(1.37),      // кромка зонта
+      za: hs + r(1.61),      // вершина зонта
+      zt: hs + r(1.63),      // верхняя кромка корпуса = общая высота H
+      rr: Math.min(SET.zigH * 0.8, D * 0.03),   // радиус валика
+    };
   },
   calc(p) {
     const q = this.parts(p), D = p.D;
-    const frus = (d1, d2, h) => PI * (d1 + d2) / 2 * Math.sqrt(h * h + ((d2 - d1) / 2) ** 2);
-    const a = m2(PI * D * q.h0 + frus(D, q.Dd, q.h1 - q.h0) + PI * q.Dc * (q.zc1 - q.zc0) + frus(q.Dz, 0, q.zz1 - q.zz0));
-    return res(a, wt(a, p.t), [`Типовые пропорции от D: патрубок ${n1(q.h0)}, диффузор до Ø${n1(q.Dd)}, корпус Ø${n1(q.Dc)}×${n1(q.zc1 - q.zc0)}, зонт Ø${n1(q.Dz)} мм`,
-      'Общая высота ≈ ' + n1(q.zz1) + ' мм']);
+    const frus = (d1, d2, h) => PI * (d1 + d2) / 2 * Math.hypot(h, (d2 - d1) / 2);
+    const pipe = PI * D * q.zp, funnel = frus(D, q.D1, q.zf - q.zp), skirt = frus(D, q.D1, q.zk - q.zs), body = PI * q.D1 * (q.zt - q.zk);
+    const umb = frus(0, q.D2, q.za - q.zu) + PI * q.D2 * (q.zu - q.zc), legs = 8 * 30 * 0.48 * D;   // 4 лапки зонта + 4 лапки корпуса, полоса 30 мм
+    const a = m2(pipe + funnel + skirt + body + umb + legs);
+    return res(a, wt(a, p.t), [`Патрубок и внутренняя труба: ${n1(PI * D)} × ${n1(q.zp)} мм (патрубок снизу ${n1(q.hs)} мм)`,
+      `Корпус: Ø${n1(q.D1)} × ${n1(q.zt - q.zk)} мм, по 2 валика у каждого края, нижний конус и воронка диффузора`,
+      `Зонт Ø${n1(q.D2)} мм на 4 лапках, ещё 4 лапки держат корпус (полоса 30 мм)`, `Общая высота H = ${n1(q.zt)} мм (пропорции от D по чертежу)`]);
   },
   build(p) {
-    const q = this.parts(p), g = new THREE.Group(), D = p.D;
-    put(g, tube({ t: 'round', d: D }, 0, q.h0)); if (q.h0 > SET.zig) zig(g, D / 2, SET.zig);
-    cone(g, D / 2, q.h0, q.Dd / 2, q.h1);
-    put(g, tube({ t: 'round', d: q.Dc }, q.zc0, q.zc1));
-    cone(g, q.Dz / 2, q.zz0, 0, q.zz1);
-    for (let i = 0; i < 4; i++) {
-      const a = PI / 4 + PI / 2 * i;
-      g.add(rod(new THREE.Vector3(q.Dd / 2 * Math.cos(a), q.Dd / 2 * Math.sin(a), q.h1),
-        new THREE.Vector3(q.Dz * 0.3 * Math.cos(a), q.Dz * 0.3 * Math.sin(a), q.zz0 + 10), 4));
+    const q = this.parts(p), g = new THREE.Group(), D = p.D, rd = d => ({ t: 'round', d });
+    put(g, tube(rd(D), 0, q.zp)); if (q.hs > SET.zig) zig(g, D / 2, SET.zig);            // патрубок + внутренняя труба
+    cone(g, D / 2, q.zp, q.D1 / 2 - 8, q.zf);                                               // воронка диффузора (кромка чуть внутри стенки)
+    cone(g, D / 2, q.zs, q.D1 / 2, q.zk);                                                   // нижний конус корпуса
+    put(g, tube(rd(q.D1), q.zk, q.zt));                                                     // корпус
+    [0.07, 0.17].forEach(k => bead(g, q.D1 / 2, q.zt - k * D, q.rr));                      // валики у верхней кромки
+    [0.065, 0.19].forEach(k => bead(g, q.D1 / 2, q.zk + k * D, q.rr));                     // …и у нижней
+    bead(g, q.D1 / 2, q.zt - q.rr * 0.5, q.rr * 1.3);                                       // закатанная кромка
+    put(g, tube(rd(q.D2), q.zc, q.zu));                                                     // воротник зонта
+    cone(g, q.D2 / 2, q.zu, 0, q.za);                                                       // зонт
+    const rb = Math.max(2.5, D * 0.01), rA = q.D2 / 2 - rb * 1.5, rC = D / 2 + 0.04 * D;
+    for (let i = 0; i < 4; i++) {                                                           // S-образные лапки зонта
+      const a = PI / 4 + PI / 2 * i, P = (r, z) => V(r * Math.cos(a), r * Math.sin(a), z);
+      const pts = [P(rA, q.zu - 0.02 * D), P(rA, q.zu - 0.15 * D), P(rC, q.zp + 0.09 * D), P(rC, q.zp + 0.01 * D)];
+      for (let j = 0; j < 3; j++) g.add(rod(pts[j], pts[j + 1], rb));
     }
     return g;
   },
@@ -674,18 +717,41 @@ def({
 /* 14. Хомут */
 def({
   id: 'clamp', name: 'Хомут', t0: 1.0,
-  fields: [numF('D', 'Диаметр воздуховода D, мм', 315), numF('w', 'Ширина ленты, мм', 30)],
-  label: p => `Хомут Ø${p.D}, лента ${p.w} мм`,
+  fields: [numF('D', 'Диаметр воздуховода D, мм', 315), numF('w', 'Ширина ленты, мм', 40),
+    selF('hang', 'Подвес', [['m8', 'Шпилька М8 сверху'], ['none', 'Без подвеса']], 'm8'),
+    numF('hl', 'Длина шпильки М8, мм', 120, 10, p => p.hang === 'm8')],
+  label: p => `Хомут Ø${p.D}, лента ${p.w} мм, стяжка болтом М8` + (p.hang === 'm8' ? `, подвес шпилька М8 L=${p.hl}` : ''),
   calc(p) {
-    const len = PI * (p.D + 2 * p.t) + 80, a = m2(len * p.w);
-    return res(a, wt(a, p.t) + 0.05, [`Лента: ${n1(len)} × ${p.w} мм (с ушками 2×40), δ=${p.t}`, 'В вес включён крепёж 0,05 кг']);
+    const len = PI * (p.D + 2 * p.t) + 80, a = m2(len * p.w), stud = p.hang === 'm8' ? PI * 0.004 ** 2 * (p.hl / 1000) * SET.density + 0.012 : 0;
+    const dev = [`Лента: ${n1(len)} × ${p.w} мм (с ушками 2×40), δ=${p.t}`, 'Стяжка болтом М8×40 с гайкой и шайбами, вес 0,05 кг'];
+    if (p.hang === 'm8') dev.push(`Подвес: шпилька М8 длиной ${p.hl} мм и приваренная гайка, вес ${n1(stud * 1000)} г`);
+    return res(a, wt(a, p.t) + 0.05 + stud, dev);
   },
   build(p) {
-    const g = new THREE.Group(), r = p.D / 2 + p.t;
-    put(g, tube({ t: 'round', d: 2 * r }, -p.w / 2, p.w / 2));
-    [-1, 1].forEach(k => { const e = new THREE.Mesh(new THREE.BoxGeometry(30, p.w, 6), mat(COL.steel)); e.position.set(r + 15, 0, k * 14); g.add(e); });
-    g.rotation.x = 0;
-    const bolt = rod(new THREE.Vector3(r + 15, 0, -30), new THREE.Vector3(r + 15, 0, 30), 4); g.add(bolt);
+    /* лента разомкнута сбоку (+X); концы ленты загнуты наружу двумя ушками, они стоят напротив друг друга вдоль окружности
+       (по вертикали), болт М8 идёт поперёк ушек; сверху (+Y) приварена гайка и вкручена шпилька М8 для подвеса */
+    const g = new THREE.Group(), r = p.D / 2 + p.t, w = p.w, gap = 10, tt = 3, lug = 26, ae = (gap / 2) / r, n = 140, pos = [], idx = [];
+    for (let i = 0; i <= n; i++) {
+      const ang = ae + (2 * PI - 2 * ae) * i / n, c = r * Math.cos(ang), sn = r * Math.sin(ang);
+      pos.push(c, sn, -w / 2, c, sn, w / 2);
+    }
+    for (let i = 0; i < n; i++) { const k = i * 2; idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); }
+    const band = new THREE.BufferGeometry(); band.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); band.setIndex(idx); band.computeVertexNormals();
+    put(g, band);
+    [-1, 1].forEach(sg => { const l = new THREE.Group(); put(l, new THREE.BoxGeometry(lug, tt, w), { flat: true }); l.position.set(r + lug / 2 - 1, sg * (gap / 2 + tt / 2), 0); g.add(l); });
+    const bx = r + lug * 0.55, ext = gap / 2 + tt, bolt = mat(0x56657a);   // болт М8: стержень Ø8, шестигранные головка и гайка, шайбы
+    g.add(rod(V(bx, -ext - 6, 0), V(bx, ext + 8, 0), 4, 0x56657a));
+    const hex = (rad, h, y) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(rad, rad, h, 6), bolt); m.position.set(bx, y, 0); g.add(m); };
+    const washer = y => { const m = new THREE.Mesh(new THREE.CylinderGeometry(8.5, 8.5, 1.6, 20), mat(COL.steel)); m.position.set(bx, y, 0); g.add(m); };
+    washer(-ext - 0.8); hex(7.5, 5.3, -ext - 1.6 - 2.65); washer(ext + 0.8); hex(7.5, 6.5, ext + 1.6 + 3.25);
+    if (p.hang === 'm8') {   // подвес: гайка М8 на верхней точке ленты и шпилька с резьбой
+      const nutH = 6.5, y0 = r - 0.5;
+      const nm = new THREE.Mesh(new THREE.CylinderGeometry(7.5, 7.5, nutH, 6), bolt); nm.position.set(0, y0 + nutH / 2, 0); g.add(nm);
+      g.add(rod(V(0, y0 - 2, 0), V(0, r + p.hl, 0), 4, 0xaab5c4));
+      const pts = [], pitch = 1.25, steps = Math.round(p.hl / pitch) * 8;   // видимая резьба: винтовая линия с шагом 1,25 мм
+      for (let i = 0; i <= steps; i++) { const y = y0 + nutH + (p.hl - nutH) * i / steps, a = 2 * PI * (y / pitch); pts.push(V(4.2 * Math.cos(a), y, 4.2 * Math.sin(a))); }
+      g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: VIEW.style === 'draw' ? 0x111111 : 0x3f4c5e })));
+    }
     return g;
   },
 });
