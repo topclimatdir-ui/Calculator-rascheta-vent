@@ -23,7 +23,7 @@ const ANN = {
     return [...sec(s, h, k), lin(V(0, hy(s), -h), V(0, hy(s), h), V(0, k, 0), 'L=' + p.L)];
   },
   elbow(p) {
-    const s = shapeOf(p), al = p.ang * PI / 180, dim = s.t === 'round' ? s.d : s.a, R = p.rr * dim, e = p.ends, k = kk(dim, R);
+    const s = shapeOf(p), al = p.ang * PI / 180, dim = s.t === 'round' ? s.d : s.a, R = elbowR(p), e = p.ends, k = kk(dim, R);
     const E = V(R * (1 - Math.cos(al)), 0, R * Math.sin(al)), t = V(Math.sin(al), 0, Math.cos(al)), nn = V(Math.cos(al), 0, -Math.sin(al));
     const hm = al / 2, P = V(R * (1 - Math.cos(hm)), 0, R * Math.sin(hm)), nm = V(Math.cos(hm), 0, -Math.sin(hm));
     const M = new THREE.Matrix4().makeTranslation(E.x, 0, E.z).multiply(new THREE.Matrix4().makeRotationY(al));
@@ -34,7 +34,7 @@ const ANN = {
       out.push(lin(a, a.clone().add(t.clone().multiplyScalar(e)), V(0, k, 0), String(e)));
     }
     out.push(lab(P.clone().add(nm.clone().multiplyScalar(dim / 2 + k * 1.3)).add(V(0, hy(s), 0)), `α=${p.ang}°`));
-    out.push(lab(P.clone().sub(nm.clone().multiplyScalar(dim / 2 + k * 0.6)), 'R' + n1(R)));
+    out.push(lab(P.clone().sub(nm.clone().multiplyScalar(dim / 2 + k * 0.6)), s.t === 'rect' ? 'Rвн=' + n1(p.ri || 0) : 'R' + n1(R)));
     return out;
   },
   transition(p) {

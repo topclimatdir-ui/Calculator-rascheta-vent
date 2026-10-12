@@ -111,7 +111,7 @@ const GROUPS = [
   { title: 'Круглое сечение', items: [['pipe'], ['snv'], ['nipple'], ['elbow', { shape: 'round' }, 'Отвод'], ['transition', { s1: 'round', s2: 'round' }, 'Переход'],
     ['tee', { s1: 'round', s2: 'round' }, 'Тройник / врезка / крестовина'], ['throttle', { shape: 'round' }], ['cap', { shape: 'round', h: 80 }], ['mesh', { shape: 'round', fw: 80 }],
     ['clamp'], ['mushroom'], ['tsagi'], ['exhaust45'], ['nozzle'], ['silround'], ['flex', { shape: 'round' }, 'Гибкая вставка'], ['filterbox', { cs: 'round' }, 'Фильтр-бокс (круглое присоединение)']] },
-  { title: 'Прямоугольное сечение', items: [['box'], ['elbow', { shape: 'rect', ends: 100, ang: 90 }, 'Отвод'], ['transition', { s1: 'rect', s2: 'rect' }, 'Переход'],
+  { title: 'Прямоугольное сечение', items: [['box'], ['elbow', { shape: 'rect', ends: 100, ang: 90, ri: 0 }, 'Отвод'], ['transition', { s1: 'rect', s2: 'rect' }, 'Переход'],
     ['tee', { s1: 'rect', s2: 'rect' }, 'Тройник / врезка / крестовина'], ['throttle', { shape: 'rect' }], ['cap', { shape: 'rect' }], ['mesh', { shape: 'rect' }],
     ['silrect'], ['filterbox', { cs: 'rect' }, 'Фильтр-бокс (прямоуг. присоединение)'], ['cassette'], ['pocketf'], ['flex', { shape: 'rect' }, 'Гибкая вставка (фланец S20)'], ['hood']] },
   { title: 'Комбинированные: круг и прямоугольник', items: [['transition', { s1: 'round', s2: 'rect' }, 'Переход круг → прямоугольник'],

@@ -223,6 +223,7 @@ def({
 });
 
 /* 2. Отвод / колено */
+const elbowR = p => (p.shape === 'round' ? p.rr * p.D : (p.ri || 0) + p.A / 2);   // радиус по оси
 const elbowAngs = p => {
   const al = p.ang * PI / 180;
   if (p.bt === 'seg' && p.shape === 'round') {
@@ -235,26 +236,27 @@ const elbowAngs = p => {
 def({
   id: 'elbow', name: 'Отвод / колено',
   fields: [selF('shape', 'Сечение', SH, 'round'), ...dims('', '', 'shape', 315, 500, 300),
-    numF('ang', 'Угол отвода α, °', 90, 5), numF('rr', 'Радиус по оси, × D (или × A)', 1.5, 0.6),
+    numF('ang', 'Угол отвода α, °', 90, 5), numF('rr', 'Радиус по оси, × D', 1.5, 0.6, p => p.shape === 'round'),
+    numF('ri', 'Внутренний радиус горловины, мм (0 = острый угол)', 0, 0, p => p.shape === 'rect'),
     numF('ends', 'Прямые участки по краям, мм', 50, 0),
     { k: 'bt', l: 'Тип (круглый)', sel: [['smooth', 'Плавный'], ['seg', 'Сегментный']], v: 'seg', show: p => p.shape === 'round' },
     numF('seg', 'Секций (сегментный)', 3, 2, p => p.shape === 'round' && p.bt === 'seg')],
   label: p => `Отвод ${p.ang}° ${p.shape === 'round' ? (p.bt === 'seg' ? 'круглый сегментный' : 'круглый') : 'прямоугольный'} ${dimStr(shapeOf(p))}`,
   calc(p) {
-    const s = shapeOf(p), al = p.ang * PI / 180, dim = s.t === 'round' ? s.d : s.a, R = p.rr * dim;
+    const s = shapeOf(p), al = p.ang * PI / 180, dim = s.t === 'round' ? s.d : s.a, R = elbowR(p);
     const a = m2((s.t === 'round' ? PI * s.d * R * al : 2 * al * R * (s.a + s.b)) + 2 * p.ends * perim(s));
     const dev = [`Радиус по оси R=${n1(R)} мм, длина дуги по оси ${n1(R * al)} мм`,
       `Внутренний радиус ${n1(R - dim / 2)} мм, наружный ${n1(R + dim / 2)} мм`];
     if (p.ends > 0) dev.push(`Прямые участки: 2 × ${p.ends} мм`);
-    if (R <= dim / 2) dev.push('⚠ Радиус слишком мал — увеличьте');
+    if (s.t === 'round' && R <= dim / 2) dev.push('⚠ Радиус слишком мал — увеличьте');
     return res(a, wt(a, p.t), dev);
   },
   build(p) {
     const g = new THREE.Group(), s = shapeOf(p), dim = s.t === 'round' ? s.d : s.a, angs = elbowAngs(p);
-    const rings = sweepRingsAt(s, p.rr * dim, angs, p.ends);
+    const rings = sweepRingsAt(s, elbowR(p), angs, p.ends);
     put(g, ringsGeom(rings), { flat: isFlat(s) });
     if (s.t === 'round' && SET.zig > 0 && p.ends > 0) {
-      const zz = Math.min(SET.zig, p.ends), R = p.rr * dim, al = p.ang * PI / 180;
+      const zz = Math.min(SET.zig, p.ends), R = elbowR(p), al = p.ang * PI / 180;
       zig(g, s.d / 2, -p.ends + zz);
       const E = new THREE.Vector3(R * (1 - Math.cos(al)), 0, R * Math.sin(al)), t = new THREE.Vector3(Math.sin(al), 0, Math.cos(al));
       const gz = new THREE.Group(); zig(gz, s.d / 2, 0); gz.rotation.y = al; gz.position.copy(E.add(t.multiplyScalar(p.ends - zz))); g.add(gz);
