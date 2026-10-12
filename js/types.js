@@ -789,15 +789,19 @@ def({
   build(p) {
     const g = new THREE.Group(), s = shapeOf(p), h = p.L / 2, n = Math.max(4, Math.round(p.L / 25)), rings = [], round = s.t === 'round';
     for (let i = 0; i <= n; i++) {
-      const z = -h + p.L * i / n, k = i % 2 ? 1 : 0, q = k ? shrink(s, round ? 4 : 6) : s;
+      const z = -h + p.L * i / n, k = i % 2 ? 1 : 0, q = k ? shrink(s, round ? 1.5 : 6) : s;
       rings.push(profilePts(q, z));
     }
-    put(g, ringsGeom(rings), { flat: isFlat(s), color: VIEW.style === 'draw' ? 0xeceff3 : (round ? 0x8a9199 : 0x2d3138) });
+    put(g, ringsGeom(rings), { flat: isFlat(s), color: VIEW.style === 'draw' ? 0xeceff3 : (round ? 0x4a4d5a : 0x2d3138) });
     if (round && p.lk > 0) {   // металлические обечайки с закатанным краем и зигом у ткани
       [-1, 1].forEach(sg => {
         const z0 = sg * h, z1 = sg * (h + p.lk);
         put(g, tube(s, Math.min(z0, z1), Math.max(z0, z1)));
-        zig(g, s.d / 2, sg * (h + Math.min(10, p.lk / 3))); zig(g, s.d / 2, sg * (h + p.lk - 4));
+        const nt = Math.min(140, Math.round(PI * s.d / 12));   // зубчатое обжимное кольцо ткани у обечайки
+        for (let i = 0; i < nt; i++) {
+          const th = 2 * PI * i / nt, tooth = new THREE.Mesh(new THREE.BoxGeometry(3, 7, 5), mat(0xa9b4c1));
+          tooth.position.set((s.d / 2 + 1.5) * Math.cos(th), (s.d / 2 + 1.5) * Math.sin(th), sg * (h + 3)); tooth.rotation.z = th; g.add(tooth);
+        }
       });
     }
     if (p.shape === 'rect' && p.fg && p.fg !== 'none') { drawFlange(g, s, at(0, 0, -h, PI), p.fg); drawFlange(g, s, at(0, 0, h, 0), p.fg); }
