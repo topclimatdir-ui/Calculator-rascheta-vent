@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Калькулятор воздуховодов — ВЕНТ ФЕКТОРІ</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="top no-print">
+  <h1>Калькулятор воздуховодов и фасонных изделий</h1>
+  <div class="actions"><button id="csv">Excel / CSV</button><button id="print" class="primary">Печать / PDF</button></div>
+</header>
+
+<main>
+<section id="constructor" class="panel no-print">
+  <h2>1. Конструктор изделия</h2>
+  <div id="types" class="types"></div>
+  <div class="cols">
+    <div class="form">
+      <div id="fields" class="fields"></div>
+      <div class="fields add-row">
+        <label>Кол-во, шт.<input id="qty" type="number" min="1" value="1"></label>
+        <label>Цена за шт., грн <small>(пусто = авто)</small><input id="price" type="text" inputmode="decimal"></label>
+        <label>Раздел КП<input id="section" list="sectionList"></label>
+        <datalist id="sectionList"></datalist>
+      </div>
+      <p id="warn" class="warn"></p>
+      <div id="result"></div>
+      <div class="btns"><button id="add" class="primary">＋ Добавить в КП</button><button id="cancel" hidden>Отмена</button></div>
+    </div>
+    <div class="viewbox">
+      <div id="view"></div>
+      <label class="rot"><input type="checkbox" id="rot" checked> вращение</label>
+      <p class="hint">Мышь: вращать — левая кнопка, масштаб — колесо</p>
+    </div>
+  </div>
+</section>
+
+<details class="panel no-print">
+  <summary>Настройки цен, скидки, металла</summary>
+  <div class="fields set">
+    <label>Цена за м², грн — 0,5 мм<input type="number" data-set="rate/0.5"></label>
+    <label>Цена за м², грн — 0,7 мм<input type="number" data-set="rate/0.7"></label>
+    <label>Цена за м², грн — 1,0 мм<input type="number" data-set="rate/1"></label>
+    <label>Скидка, %<input type="number" data-set="disc"></label>
+    <label>НДС, %<input type="number" data-set="vat"></label>
+    <label>Язык КП<select data-set="lang"><option value="uk">Українська</option><option value="ru">Русский</option></select></label>
+    <label>Плотность стали, кг/м³<input type="number" data-set="density"></label>
+    <label>Вес сетки, кг/м²<input type="number" step="0.1" data-set="meshW"></label>
+    <label>Плотность ваты, кг/м³<input type="number" data-set="woolD"></label>
+    <label>Логотип<input type="file" id="logoFile" accept="image/*"></label>
+    <button id="logoReset" type="button">Вернуть логотип</button>
+    <button id="clear" type="button">Очистить КП</button>
+  </div>
+  <p class="hint">Цены в КП указываются с НДС. Цены за м² — стартовые значения, подставьте свои. Цену любой строки можно поправить прямо в таблице КП.</p>
+</details>
+
+<section id="kp" class="sheet">
+  <div class="kphead">
+    <img id="logo" alt="logo">
+    <div class="comp"><div class="cname" data-key="company" contenteditable="plaintext-only"></div><div class="legal" data-key="legal" contenteditable="plaintext-only"></div></div>
+    <div class="contacts" data-key="contacts" contenteditable="plaintext-only"></div>
+  </div>
+  <div class="bullets">
+    <span data-key="b1" contenteditable="plaintext-only"></span><span data-key="b2" contenteditable="plaintext-only"></span>
+    <span data-key="b3" contenteditable="plaintext-only"></span><span data-key="b4" contenteditable="plaintext-only"></span>
+  </div>
+  <div id="kpMeta" class="meta">
+    <h2><span data-i="title"></span> <span data-i="no"></span> <span class="inl" data-key="kpno" contenteditable="plaintext-only" data-ph="____"></span>
+      <span data-i="from"></span> <input type="date" data-key="date"></h2>
+    <div class="line"><b data-i="obj"></b> <span class="fill" data-key="obj" contenteditable="plaintext-only" data-ph="Назва / адреса об'єкта"></span></div>
+    <div class="line"><b data-i="cust"></b> <span class="fill" data-key="cust" contenteditable="plaintext-only" data-ph="ПІБ / назва замовника"></span></div>
+    <div class="intro" data-key="intro" contenteditable="plaintext-only"></div>
+  </div>
+
+  <table id="tbl" class="grid"></table>
+
+  <div class="bottom">
+    <div class="conds">
+      <h3 data-i="conds"></h3>
+      <div class="kv"><span>Термін виконання:</span><i data-key="term" contenteditable="plaintext-only"></i></div>
+      <div class="kv"><span>Умови оплати:</span><i data-key="pay" contenteditable="plaintext-only"></i></div>
+      <div class="kv"><span>Умови поставки:</span><i data-key="delivery" contenteditable="plaintext-only"></i></div>
+      <div class="kv"><span>Гарантія:</span><i data-key="warr" contenteditable="plaintext-only"></i></div>
+      <div class="kv"><span>Пропозиція дійсна до:</span><input type="date" data-key="valid"></div>
+    </div>
+    <div class="summary"><h3 data-i="total"></h3><table id="sum"></table></div>
+  </div>
+
+  <div class="comments"><h3 data-i="comm"></h3><div class="cbox" data-key="comments" contenteditable="plaintext-only"></div></div>
+
+  <div class="sign">
+    <div><div data-key="boss" contenteditable="plaintext-only"></div><div data-key="bossName" contenteditable="plaintext-only"></div></div>
+    <div class="mp"><span data-i="mp"></span><br><small data-i="sign"></small></div>
+  </div>
+  <div class="foot"><span data-key="foot1" contenteditable="plaintext-only"></span><span data-key="foot2" contenteditable="plaintext-only"></span></div>
+</section>
+</main>
+
+<script src="vendor/three.min.js"></script>
+<script src="vendor/OrbitControls.js"></script>
+<script src="js/types.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
