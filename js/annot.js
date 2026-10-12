@@ -82,9 +82,9 @@ const ANN = {
   },
   mesh(p) { const s = shapeOf(p), k = kk(hx(s) * 2, hy(s) * 2); return [...sec(s, p.fw, k), lin(V(hx(s), 0, 0), V(hx(s), 0, p.fw), V(k, 0, 0), String(p.fw))]; },
   silround(p) {
-    const Dk = p.D + 2 * p.s, h = p.L / 2, k = kk(Dk);
-    return [lin(V(-Dk / 2, 0, h), V(Dk / 2, 0, h), V(0, -k, 0), 'Ø' + Dk), lin(V(-p.D / 2, 0, h + 60), V(p.D / 2, 0, h + 60), V(0, -k * 1.7, 0), 'Ø' + p.D),
-      lin(V(0, Dk / 2, -h), V(0, Dk / 2, h), V(0, k, 0), 'L=' + p.L)];
+    const Dk = p.D + 2 * p.s, h = p.L / 2, hb = h - p.st, k = kk(Dk);
+    return [lin(V(-Dk / 2, 0, hb), V(Dk / 2, 0, hb), V(0, -k, 0), 'Ø' + Dk), lin(V(-p.D / 2, 0, h), V(p.D / 2, 0, h), V(0, -k * 1.8, 0), 'Ø' + p.D),
+      lin(V(0, Dk / 2, -h), V(0, Dk / 2, h), V(0, k, 0), 'L=' + p.L), lin(V(Dk / 2, 0, -hb), V(Dk / 2, 0, hb), V(k, 0, 0), String(p.L - 2 * p.st))];
   },
   silrect(p) {
     const h = p.L / 2, k = kk(p.A, p.B);
@@ -105,6 +105,8 @@ ANN.filterbox = function (p) {
   return [...sec(c, h + p.fl, k), lin(V(0, b.b / 2, -h), V(0, b.b / 2, h), V(0, k, 0), 'L=' + p.L),
     lin(V(-b.a / 2, -b.b / 2, h), V(b.a / 2, -b.b / 2, h), V(0, -k * 1.9, 0), 'A=' + n1(b.a)), lin(V(b.a / 2, -b.b / 2, -h), V(b.a / 2, b.b / 2, -h), V(k, 0, 0), 'B=' + n1(b.b))];
 };
+ANN.cassette = p => { const k = kk(p.A, p.B); return [lin(V(-p.A / 2, -p.B / 2, p.th / 2), V(p.A / 2, -p.B / 2, p.th / 2), V(0, -k, 0), 'A=' + p.A), lin(V(p.A / 2, -p.B / 2, p.th / 2), V(p.A / 2, p.B / 2, p.th / 2), V(k, 0, 0), 'B=' + p.B), lin(V(p.A / 2, p.B / 2, -p.th / 2), V(p.A / 2, p.B / 2, p.th / 2), V(0, k, 0), String(p.th))]; };
+ANN.pocketf = p => { const k = kk(p.A, p.B); return [lin(V(-p.A / 2, -p.B / 2, 12), V(p.A / 2, -p.B / 2, 12), V(0, -k, 0), 'A=' + p.A), lin(V(p.A / 2, -p.B / 2, 12), V(p.A / 2, p.B / 2, 12), V(k, 0, 0), 'B=' + p.B), lin(V(p.A / 2, p.B / 2, 12), V(p.A / 2, p.B / 2, 12 + p.pk), V(0, k, 0), 'L=' + p.pk)]; };
 ANN.box = ANN.pipe = ANN.snv = ANN.duct;
 TYPES.forEach(t => { t.annot = ANN[t.id]; });
 

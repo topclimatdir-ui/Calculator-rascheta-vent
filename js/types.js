@@ -3,7 +3,7 @@
 'use strict';
 
 const PI = Math.PI;
-const SET = { density: 7850, meshW: 1.0, woolD: 80, t: 0.7 };   // обновляется из app.js
+const SET = { density: 7850, meshW: 1.0, woolD: 80, t: 0.7, zig: 50 };   // обновляется из app.js
 
 /* ---------- сечения ---------- */
 const shapeOf = (p, sfx = '', key = 'shape') =>
@@ -139,6 +139,17 @@ function conicDev(D1, D2, L) {
   return `Развёртка-сектор: R=${n1(Rb)} мм, r=${n1(Rb - s)} мм, угол ${n1(360 * (r1 - r2) / s)}°`;
 }
 
+/* зиг (ребро жёсткости) по окружности на круглых деталях, SET.zig мм от края */
+function zig(g, r, z, ox = 0, oy = 0) {
+  if (!(SET.zig > 0)) return;
+  const m = new THREE.Mesh(new THREE.TorusGeometry(r + 1.5, 4, 8, 96), mat(VIEW.style === "draw" ? 0xe3e8ee : 0x7a94ae));
+  m.position.set(ox, oy, z); g.add(m);
+}
+function zigs(g, sh, z0, z1, ox = 0, oy = 0) {   // зиги на расстоянии SET.zig от обоих краёв участка
+  if (sh.t !== 'round' || !(SET.zig > 0) || z1 - z0 < 2 * SET.zig) return;
+  zig(g, sh.d / 2, z0 + SET.zig, ox, oy); zig(g, sh.d / 2, z1 - SET.zig, ox, oy);
+}
+
 /* ---------- описания полей ---------- */
 const SH = [['round', 'Круглое'], ['rect', 'Прямоугольное']];
 const selF = (k, l, sel, v) => ({ k, l, sel, v });
@@ -171,7 +182,7 @@ const ductCalc = function (p) {
   const s = shapeOf(p), P = perim(s), a = m2(P * p.L);
   return res(a, wt(a, p.t), [`Заготовка: ${n1(P)} × ${n1(p.L)} мм (${s.t === 'round' ? 'π·D' : '2·(A+B)'} × L)`]);
 };
-const ductBuild = function (p) { const g = new THREE.Group(), s = shapeOf(p); put(g, tube(s, -p.L / 2, p.L / 2), { flat: isFlat(s) }); return g; };
+const ductBuild = function (p) { const g = new THREE.Group(), s = shapeOf(p); put(g, tube(s, -p.L / 2, p.L / 2), { flat: isFlat(s) }); zigs(g, s, -p.L / 2, p.L / 2); return g; };
 def({
   id: 'box', name: 'Короб прямоугольный', fixed: { shape: 'rect' },
   fields: [numF('A', 'Ширина A, мм', 500, 20), numF('B', 'Высота B, мм', 300, 20), numF('L', 'Длина L, мм', 1250)],
@@ -226,6 +237,12 @@ def({
     const g = new THREE.Group(), s = shapeOf(p), dim = s.t === 'round' ? s.d : s.a, angs = elbowAngs(p);
     const rings = sweepRingsAt(s, p.rr * dim, angs, p.ends);
     put(g, ringsGeom(rings), { flat: isFlat(s) });
+    if (s.t === 'round' && SET.zig > 0 && p.ends > 0) {
+      const zz = Math.min(SET.zig, p.ends), R = p.rr * dim, al = p.ang * PI / 180;
+      zig(g, s.d / 2, -p.ends + zz);
+      const E = new THREE.Vector3(R * (1 - Math.cos(al)), 0, R * Math.sin(al)), t = new THREE.Vector3(Math.sin(al), 0, Math.cos(al));
+      const gz = new THREE.Group(); zig(gz, s.d / 2, 0); gz.rotation.y = al; gz.position.copy(E.add(t.multiplyScalar(p.ends - zz))); g.add(gz);
+    }
     if (p.bt === 'seg' && s.t === 'round') {
       const o = p.ends > 0 ? 1 : 0;
       for (let i = 1 + o; i < angs.length - 1 + o; i++)
@@ -269,7 +286,7 @@ def({
   build(p) {
     const g = new THREE.Group(), s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2');
     put(g, this.geom(p), { flat: isFlat(s1, s2) });
-    nipsOf(p).forEach(n => { const t = new THREE.Group(); put(t, tube(n.s, n.z0, n.z1), { flat: n.s.t === 'rect' }); t.position.set(n.ox, n.oy, 0); g.add(t); });
+    nipsOf(p).forEach(n => { const t = new THREE.Group(); put(t, tube(n.s, n.z0, n.z1), { flat: n.s.t === 'rect' }); if (n.s.t === 'round' && n.len > SET.zig) zig(t, n.s.d / 2, n.z0 < 0 ? n.z0 + SET.zig : n.z1 - SET.zig); t.position.set(n.ox, n.oy, 0); g.add(t); });
     return g;
   },
 });
@@ -302,10 +319,11 @@ def({
     const g = new THREE.Group(), s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'), al = p.ang * PI / 180, sin = Math.sin(al);
     const ghost = p.kind === 'saddle';
     put(g, tube(s1, -p.L / 2, p.L / 2), { flat: isFlat(s1), opacity: ghost ? 0.22 : 1, edges: !ghost });
+    if (!ghost) zigs(g, s1, -p.L / 2, p.L / 2);
     const half = (s1.t === 'round' ? s1.d : s1.a) / 2, len = p.Lb + half / sin;
     const dirs = p.kind === 'cross' ? [al, -al] : [al];
     dirs.forEach(a => {
-      const b = new THREE.Group(); put(b, tube(s2, 0, len), { flat: isFlat(s2) }); b.rotation.y = a; g.add(b);
+      const b = new THREE.Group(); put(b, tube(s2, 0, len), { flat: isFlat(s2) }); if (s2.t === 'round' && p.Lb > SET.zig) zig(b, s2.d / 2, len - SET.zig); b.rotation.y = a; g.add(b);
     });
     return g;
   },
@@ -324,7 +342,7 @@ def({
   },
   build(p) {
     const g = new THREE.Group(), s = shapeOf(p);
-    put(g, tube(s, -p.L / 2, p.L / 2), { flat: isFlat(s) });
+    put(g, tube(s, -p.L / 2, p.L / 2), { flat: isFlat(s) }); zigs(g, s, -p.L / 2, p.L / 2);
     const disc = s.t === 'round' ? new THREE.CircleGeometry(s.d / 2 - 2, 48) : new THREE.PlaneGeometry(s.a - 4, s.b - 4);
     const dm = new THREE.Mesh(disc, mat(0x6f8aa6)); dm.rotation.y = p.open * PI / 180; g.add(dm);
     const h = (s.t === 'round' ? s.d : s.b) / 2;
@@ -348,7 +366,7 @@ def({
   },
   build(p) {
     const g = new THREE.Group(), s = { t: 'round', d: p.D }, Rk = p.kd * p.D / 2, hc = p.kh * p.D, gap = 0.25 * p.D;
-    put(g, tube(s, 0, p.Hs));
+    put(g, tube(s, 0, p.Hs)); if (p.Hs > SET.zig) zig(g, p.D / 2, SET.zig);
     cone(g, Rk, p.Hs + gap, 0, p.Hs + gap + hc);
     for (let i = 0; i < 3; i++) {
       const a = 2 * PI * i / 3 + 0.5;
@@ -377,7 +395,7 @@ def({
   },
   build(p) {
     const q = this.parts(p), g = new THREE.Group(), D = p.D;
-    put(g, tube({ t: 'round', d: D }, 0, q.h0));
+    put(g, tube({ t: 'round', d: D }, 0, q.h0)); if (q.h0 > SET.zig) zig(g, D / 2, SET.zig);
     cone(g, D / 2, q.h0, q.Dd / 2, q.h1);
     put(g, tube({ t: 'round', d: q.Dc }, q.zc0, q.zc1));
     cone(g, q.Dz / 2, q.zz0, 0, q.zz1);
@@ -403,7 +421,7 @@ def({
   build(p) {
     const g = new THREE.Group(), s = { t: 'round', d: p.D };
     const top = profilePts(s, 0).map(v => { v.z = p.H + p.D / 2 + v.x; return v; });
-    put(g, ringsGeom([profilePts(s, 0), top]));
+    put(g, ringsGeom([profilePts(s, 0), top])); if (p.H > SET.zig) zig(g, p.D / 2, SET.zig);
     g.add(gridLines(s, (x) => p.H + p.D / 2 + x, p.D / 14));
     return g;
   },
@@ -418,7 +436,9 @@ def({
     const sl = Math.sqrt(p.L * p.L + ((p.D - p.d) / 2) ** 2), a = m2(PI * (p.D + p.d) / 2 * sl);
     return res(a, wt(a, p.t), [conicDev(p.D, p.d, p.L), `Образующая ${n1(sl)} мм`]);
   },
-  build(p) { const g = new THREE.Group(); put(g, loft({ t: 'round', d: p.D }, 0, { t: 'round', d: p.d }, p.L)); return g; },
+  build(p) { const g = new THREE.Group(); put(g, loft({ t: 'round', d: p.D }, 0, { t: 'round', d: p.d }, p.L));
+    if (SET.zig > 0 && p.L > 2 * SET.zig) { const rz = z => p.D / 2 + (p.d / 2 - p.D / 2) * z / p.L; zig(g, rz(SET.zig), SET.zig); zig(g, rz(p.L - SET.zig), p.L - SET.zig); }
+    return g; },
 });
 
 /* 10. Заглушка */
@@ -434,6 +454,7 @@ def({
     const g = new THREE.Group(), s = shapeOf(p);
     put(g, tube(s, 0, p.h), { flat: isFlat(s) });
     put(g, capGeom(profilePts(s, 0)), { flat: true, edges: false });
+    if (s.t === 'round' && p.h > SET.zig + 10) zig(g, s.d / 2, p.h - SET.zig);
     return g;
   },
 });
@@ -450,6 +471,7 @@ def({
   build(p) {
     const g = new THREE.Group(), s = shapeOf(p);
     put(g, tube(s, 0, p.fw), { flat: isFlat(s) });
+    if (s.t === 'round' && p.fw > SET.zig + 10) zig(g, s.d / 2, SET.zig);
     g.add(gridLines(s, () => p.fw, Math.min(40, (s.t === 'round' ? s.d : Math.min(s.a, s.b)) / 12)));
     return g;
   },
@@ -458,20 +480,24 @@ def({
 /* 12. Шумоглушитель круглый */
 def({
   id: 'silround', name: 'Шумоглушитель круглый',
-  fields: [numF('D', 'Диаметр D, мм', 315), numF('L', 'Длина L, мм', 1000), numF('s', 'Толщина изоляции, мм', 100)],
-  label: p => `Шумоглушитель круглый Ø${p.D}, L=${p.L}, изоляция ${p.s}`,
+  fields: [numF('D', 'Диаметр D, мм', 315), numF('L', 'Общая длина с патрубками, мм (станд. 1000 / 600 / 500)', 1000),
+    numF('st', 'Патрубок с каждой стороны, мм', 50, 0), numF('s', 'Толщина изоляции, мм', 100)],
+  label: p => `Шумоглушитель круглый Ø${p.D}, L=${p.L} (корпус ${p.L - 2 * p.st}), изоляция ${p.s}`,
   calc(p) {
-    const Dk = p.D + 2 * p.s, ann = PI * (Dk * Dk - p.D * p.D) / 4;
-    const a = m2(PI * Dk * p.L + PI * p.D * p.L + 2 * ann), wool = ann * p.L / 1e9 * SET.woolD;
-    return res(a, wt(a, p.t) + wool, [`Кожух: Ø${Dk} × ${p.L} мм, перфотруба Ø${p.D}`, `Изоляция: ${(ann * p.L / 1e9).toFixed(3)} м³, ${n1(wool)} кг`]);
+    const Lb = p.L - 2 * p.st, Dk = p.D + 2 * p.s, ann = PI * (Dk * Dk - p.D * p.D) / 4;
+    const a = m2(PI * Dk * Lb + PI * p.D * p.L + 2 * ann), wool = ann * Lb / 1e9 * SET.woolD;
+    const dev = [`Корпус без патрубков ${Lb} мм + патрубки 2 × ${p.st} мм = ${p.L} мм`, `Кожух: Ø${Dk} × ${Lb} мм, перфотруба Ø${p.D} × ${p.L} мм`, `Изоляция: ${(ann * Lb / 1e9).toFixed(3)} м³, ${n1(wool)} кг`];
+    if (Lb <= 0) dev.push('⚠ Длина меньше патрубков');
+    return res(a, wt(a, p.t) + wool, dev);
   },
   build(p) {
-    const g = new THREE.Group(), Dk = p.D + 2 * p.s, h = p.L / 2;
+    const g = new THREE.Group(), Dk = p.D + 2 * p.s, h = (p.L - 2 * p.st) / 2, inner = { t: 'round', d: p.D };
     put(g, tube({ t: 'round', d: Dk }, -h, h), { opacity: 0.35, edges: false });
-    put(g, tube({ t: 'round', d: p.D }, -h - 60, h + 60));
+    put(g, tube(inner, -p.L / 2, p.L / 2));
+    if (p.st > SET.zig) { zig(g, p.D / 2, p.L / 2 - SET.zig); zig(g, p.D / 2, -p.L / 2 + SET.zig); }
     [-h, h].forEach(z => {
-      const outer = ringPts(Dk / 2, z), inner = ringPts(p.D / 2, z).reverse();
-      const m = new THREE.Mesh(ringsGeom_flat(outer, inner), mat(COL.wool, { roughness: 0.9, metalness: 0 })); g.add(m);
+      const outer = ringPts(Dk / 2, z), inn = ringPts(p.D / 2, z).reverse();
+      const m = new THREE.Mesh(ringsGeom_flat(outer, inn), mat(COL.wool, { roughness: 0.9, metalness: 0 })); g.add(m);
     });
     return g;
   },
@@ -488,7 +514,7 @@ function ringsGeom_flat(outer, inner) {   // кольцо между двумя 
 /* 13. Шумоглушитель прямоугольный */
 def({
   id: 'silrect', name: 'Шумоглушитель прямоугольный',
-  fields: [numF('A', 'Ширина A, мм', 600), numF('B', 'Высота B, мм', 400), numF('L', 'Длина L, мм', 1000),
+  fields: [numF('A', 'Ширина A, мм', 600), numF('B', 'Высота B, мм', 400), numF('L', 'Длина L, мм (станд. 1000 / 500)', 1000),
     numF('n', 'Кол-во пластин', 2, 0), numF('ph', 'Толщина пластины, мм', 100)],
   label: p => `Шумоглушитель прямоугольный ${p.A}×${p.B}, L=${p.L}, пластин ${p.n}`,
   calc(p) {
@@ -552,36 +578,97 @@ def({
   },
   build(p) {
     const q = this.geoms(p), g = new THREE.Group();
-    put(g, q.skirt, { flat: true }); put(g, q.body, { flat: true }); put(g, q.neckT, { flat: q.neck.t === 'rect' });
+    put(g, q.skirt, { flat: true }); put(g, q.body, { flat: true }); put(g, q.neckT, { flat: q.neck.t === 'rect' }); if (q.neck.t === 'round' && p.hn > SET.zig) zig(g, q.neck.d / 2, p.hs + p.H + p.hn - SET.zig);
     return g;
   },
 });
 
 /* 16. Фильтр-бокс */
+const wideDoor = (b, door) => (door === 'wide') === (b.a >= b.b) ? 'y' : 'x';   // нормаль к стенке с дверцей
 def({
   id: 'filterbox', name: 'Фильтр-бокс',
   fields: [selF('cs', 'Присоединение', SH, 'rect'), ...dims('', 'присоединения', 'cs', 315, 500, 300),
     numF('L', 'Длина корпуса L, мм', 500), numF('mg', 'Запас корпуса от сечения, мм (с каждой стороны)', 50, 0),
-    numF('th', 'Толщина кассеты фильтра, мм', 48), numF('fl', 'Патрубок присоединения, мм', 30, 0)],
-  label: p => `Фильтр-бокс ${dimStr(shapeOf(p, '', 'cs'))}, корпус L=${p.L}, кассета ${p.th}`,
+    selF('ft', 'Фильтр', [['cass', 'Кассета'], ['pocket', 'Карманный фильтр']], 'cass'),
+    numF('th', 'Толщина кассеты, мм', 50, 10, p => p.ft === 'cass'),
+    numF('pk', 'Длина карманов, мм', 600, 100, p => p.ft === 'pocket'), numF('np', 'Кол-во карманов', 3, 1, p => p.ft === 'pocket'),
+    selF('door', 'Дверца', [['wide', 'По широкой стороне'], ['narrow', 'По узкой стороне']], 'wide'),
+    numF('fl', 'Патрубок присоединения, мм', 30, 0)],
+  label: p => `Фильтр-бокс ${dimStr(shapeOf(p, '', 'cs'))}, корпус L=${p.L}, ${p.ft === 'pocket' ? 'карманный фильтр ' + p.pk : 'кассета ' + p.th}, дверца на замках`,
   body(p) { const c = shapeOf(p, '', 'cs'), w = (c.t === 'round' ? c.d : c.a) + 2 * p.mg, h = (c.t === 'round' ? c.d : c.b) + 2 * p.mg; return { c, b: { t: 'rect', a: w, b: h } }; },
   calc(p) {
     const { c, b } = this.body(p), plates = 2 * (areaCS(b) - areaCS(c));
     const a = m2(perim(b) * p.L + plates + 2 * perim(c) * p.fl);
-    return res(a, wt(a, p.t), [`Корпус: ${b.a}×${b.b}×${p.L} мм, торцы с отверстием под ${dimStr(c)}`, `Патрубки: 2 × ${p.fl} мм`,
-      `Кассета ${p.th} мм (${b.a - 10}×${b.b - 10}) и дверца обслуживания — вставляются сбоку, в вес не включены`]);
+    const dev = [`Корпус: ${b.a}×${b.b}×${p.L} мм, торцы с отверстием под ${dimStr(c)}`, `Патрубки: 2 × ${p.fl} мм`,
+      `Дверца по ${p.door === 'wide' ? 'широкой' : 'узкой'} стороне, на замках`,
+      p.ft === 'pocket' ? `Карманный фильтр: ${p.np} карм. × ${p.pk} мм (заказывается отдельно)` : `Кассета ${p.th} мм (${b.a - 10}×${b.b - 10}) — отдельной позицией`];
+    if (p.ft === 'pocket' && p.pk > p.L - 100) dev.push('⚠ Длина корпуса мала для таких карманов — увеличьте L');
+    return res(a, wt(a, p.t), dev);
   },
   build(p) {
-    const g = new THREE.Group(), { c, b } = this.body(p), h = p.L / 2;
+    const g = new THREE.Group(), { c, b } = this.body(p), h = p.L / 2, edge = new THREE.LineBasicMaterial({ color: VIEW.style === 'draw' ? 0x111111 : COL.edge });
     put(g, tube(b, -h, h), { flat: true, opacity: 0.4, edges: false });
     [-h, h].forEach(z => put(g, loft(b, z, c, z), { flat: true }));
     if (p.fl > 0) { put(g, tube(c, -h - p.fl, -h), { flat: isFlat(c) }); put(g, tube(c, h, h + p.fl), { flat: isFlat(c) }); }
-    const box = new THREE.BoxGeometry(b.a, b.b, p.L);
-    g.add(new THREE.LineSegments(new THREE.EdgesGeometry(box), new THREE.LineBasicMaterial({ color: VIEW.style === 'draw' ? 0x111111 : COL.edge })));
-    const cs = new THREE.Mesh(new THREE.BoxGeometry(b.a - 10, b.b - 10, p.th), mat(0xdde8ef, { roughness: 0.9, metalness: 0 })); g.add(cs);
-    g.add(new THREE.LineSegments(new THREE.EdgesGeometry(cs.geometry), new THREE.LineBasicMaterial({ color: COL.edge })));
-    const door = new THREE.Mesh(new THREE.BoxGeometry(6, b.b * 0.7, Math.max(p.th + 60, p.L * 0.5)), mat(COL.steel)); door.position.set(b.a / 2 + 3, 0, 0); g.add(door);
-    g.add(rod(V(b.a / 2 + 6, -b.b * 0.1, 0), V(b.a / 2 + 6, b.b * 0.1, 0), 5, 0x333c48));
+    g.add(new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(b.a, b.b, p.L)), edge));
+    if (p.ft === 'pocket') {
+      const z0 = -h + 80, w = (b.a - 10) / p.np;
+      for (let i = 0; i < p.np; i++) {
+        const x = -(b.a - 10) / 2 + w * (i + 0.5);
+        const pocket = ringsGeom([profilePts({ t: 'rect', a: w - 4, b: b.b - 10 }, z0, x), profilePts({ t: 'rect', a: 8, b: b.b - 10 }, Math.min(z0 + p.pk, h - 10), x)]);
+        put(g, pocket, { flat: true, color: 0xe9eff5 });
+      }
+      put(g, tube({ t: 'rect', a: b.a - 6, b: b.b - 6 }, z0 - 12, z0), { flat: true });
+    } else {
+      const cs = new THREE.Mesh(new THREE.BoxGeometry(b.a - 10, b.b - 10, p.th), mat(0xdde8ef, { roughness: 0.9, metalness: 0 })); g.add(cs);
+      g.add(new THREE.LineSegments(new THREE.EdgesGeometry(cs.geometry), edge));
+    }
+    /* дверца на замках по широкой (или узкой) стороне */
+    const nrm = wideDoor(b, p.door), span = nrm === 'y' ? b.a : b.b, dl = Math.max(160, p.L * 0.6), dw = span * 0.8;
+    const d = new THREE.Group(); put(d, new THREE.BoxGeometry(dw, 6, dl), { flat: true });
+    [-1, 1].forEach(k => { const lk = new THREE.Mesh(new THREE.BoxGeometry(34, 14, 18), mat(0x333c48)); lk.position.set(k * (dw / 2 - 30), 8, 0); d.add(lk); });
+    d.add(rod(V(-dw * 0.2, 9, -dl * 0.35), V(-dw * 0.2, 9, dl * 0.35), 4, 0x333c48));
+    d.position.set(nrm === 'y' ? 0 : b.a / 2 + 3, nrm === 'y' ? b.b / 2 + 3 : 0, 0);
+    if (nrm === 'x') { d.rotation.z = -PI / 2; }
+    g.add(d);
+    return g;
+  },
+});
+
+/* 17. Кассета фильтра (отдельно) */
+def({
+  id: 'cassette', name: 'Кассета фильтра', fixed: { shape: 'rect' },
+  fields: [numF('A', 'Ширина A, мм', 490, 50), numF('B', 'Высота B, мм', 290, 50), numF('th', 'Толщина, мм', 50, 10)],
+  label: p => `Кассета фильтра ${p.A}×${p.B}×${p.th}`,
+  calc(p) {
+    const a = m2(2 * (p.A + p.B) * p.th), media = p.A * p.B / 1e6 * 0.35;
+    return res(a, wt(a, p.t) + media, [`Рамка: ${n1(2 * (p.A + p.B))} × ${p.th} мм`, `Фильтрующий материал: ${num(p.A * p.B / 1e6)} м² (в вес включён 0,35 кг/м²)`, 'Цену задайте в КП вручную']);
+  },
+  build(p) {
+    const g = new THREE.Group(), s = { t: 'rect', a: p.A, b: p.B };
+    put(g, tube(s, -p.th / 2, p.th / 2), { flat: true });
+    const m = new THREE.Mesh(new THREE.BoxGeometry(p.A - 6, p.B - 6, p.th - 8), mat(0xe7eef4, { roughness: 0.95, metalness: 0 })); g.add(m);
+    for (let i = 1; i < 14; i++) { const x = -p.A / 2 + p.A * i / 14; g.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints([V(x, -p.B / 2 + 3, p.th / 2 - 3), V(x, p.B / 2 - 3, p.th / 2 - 3)]), new THREE.LineBasicMaterial({ color: 0x9fb0c0 }))); }
+    return g;
+  },
+});
+
+/* 18. Карманный фильтр (отдельно) */
+def({
+  id: 'pocketf', name: 'Фильтр карманный', fixed: { shape: 'rect' },
+  fields: [numF('A', 'Ширина рамки A, мм', 490, 50), numF('B', 'Высота рамки B, мм', 290, 50), numF('pk', 'Длина карманов, мм', 600, 100), numF('np', 'Кол-во карманов', 3, 1)],
+  label: p => `Фильтр карманный ${p.A}×${p.B}, ${p.np} карм. × ${p.pk}`,
+  calc(p) {
+    const frame = m2(2 * (p.A + p.B) * 25), media = p.np * 2 * p.pk * p.B / 1e6;
+    return res(frame, wt(frame, p.t) + media * 0.35, [`Рамка: ${n1(2 * (p.A + p.B))} × 25 мм`, `Карманов: ${p.np} шт., материал ${num(media)} м² (в вес включён 0,35 кг/м²)`, 'Цену задайте в КП вручную']);
+  },
+  build(p) {
+    const g = new THREE.Group(), w = (p.A - 10) / p.np;
+    put(g, tube({ t: 'rect', a: p.A, b: p.B }, -12, 12), { flat: true });
+    for (let i = 0; i < p.np; i++) {
+      const x = -(p.A - 10) / 2 + w * (i + 0.5);
+      put(g, ringsGeom([profilePts({ t: 'rect', a: w - 4, b: p.B - 10 }, 12, x), profilePts({ t: 'rect', a: 8, b: p.B - 10 }, 12 + p.pk, x)]), { flat: true, color: 0xe9eff5 });
+    }
     return g;
   },
 });

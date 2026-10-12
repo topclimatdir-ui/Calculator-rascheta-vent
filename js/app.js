@@ -31,12 +31,12 @@ const DOC0 = {
   comments: '', boss: 'Директор ТОВ «ВЕНТ ФЕКТОРІ»', bossName: '[ПІБ]',
   foot1: 'ТОВ «ВЕНТ ФЕКТОРІ» · Повітроводи та вентиляційні системи', foot2: '+38 067 8866 255 · ventfactory.kr@gmail.com',
 };
-const SET0 = { snv: {}, lang: 'uk', disc: 10, vat: 20, rate: { '0.5': 650, '0.7': 850, '1': 1200 }, density: 7850, meshW: 1, woolD: 80 };
+const SET0 = { zig: 50, snv: {}, lang: 'uk', disc: 10, vat: 20, rate: { '0.5': 650, '0.7': 850, '1': 1200 }, density: 7850, meshW: 1, woolD: 80 };
 
 let state = { set: structuredClone(SET0), doc: structuredClone(DOC0), items: [], logo: null, sections: ['Повітроводи та фасонні вироби'] };
 try { const s = JSON.parse(localStorage.getItem(LS)); if (s) { Object.assign(state, s); state.set = Object.assign(structuredClone(SET0), s.set); state.doc = Object.assign(structuredClone(DOC0), s.doc); } } catch (e) { }
 const save = () => { try { localStorage.setItem(LS, JSON.stringify(state)); } catch (e) { } };
-const syncSet = () => { SET.density = +state.set.density; SET.meshW = +state.set.meshW; SET.woolD = +state.set.woolD; };
+const syncSet = () => { SET.density = +state.set.density; SET.meshW = +state.set.meshW; SET.woolD = +state.set.woolD; SET.zig = +state.set.zig; };
 syncSet();
 
 /* ---------- 3D-просмотр ---------- */
@@ -113,7 +113,7 @@ const GROUPS = [
     ['clamp'], ['mushroom'], ['tsagi'], ['exhaust45'], ['nozzle'], ['silround'], ['filterbox', { cs: 'round' }, 'Фильтр-бокс (круглое присоединение)']] },
   { title: 'Прямоугольное сечение', items: [['box'], ['elbow', { shape: 'rect' }, 'Отвод'], ['transition', { s1: 'rect', s2: 'rect' }, 'Переход'],
     ['tee', { s1: 'rect', s2: 'rect' }, 'Тройник / врезка / крестовина'], ['throttle', { shape: 'rect' }], ['cap', { shape: 'rect' }], ['mesh', { shape: 'rect' }],
-    ['silrect'], ['filterbox', { cs: 'rect' }, 'Фильтр-бокс (прямоуг. присоединение)'], ['hood']] },
+    ['silrect'], ['filterbox', { cs: 'rect' }, 'Фильтр-бокс (прямоуг. присоединение)'], ['cassette'], ['pocketf'], ['hood']] },
   { title: 'Комбинированные: круг и прямоугольник', items: [['transition', { s1: 'round', s2: 'rect' }, 'Переход круг → прямоугольник'],
     ['transition', { s1: 'rect', s2: 'round' }, 'Переход прямоугольник → круг'], ['tee', { s1: 'rect', s2: 'round' }, 'Тройник: магистраль прямоуг., ответвление круглое'],
     ['tee', { s1: 'round', s2: 'rect' }, 'Тройник: магистраль круглая, ответвление прямоуг.']] },
@@ -136,7 +136,13 @@ function numericOk() {
   return cur.type.fields.every(f => (f.show && !f.show(cur.p)) || f.sel || (isFinite(cur.p[f.k]) && cur.p[f.k] >= f.min));
 }
 function rateFor(t) { return +state.set.rate[String(+t)] || 0; }
-function compute(type, p) { return type.calc(p); }
+const ROUND_ZIG = ['pipe', 'snv', 'elbow', 'transition', 'tee', 'throttle', 'cap', 'mesh', 'mushroom', 'tsagi', 'exhaust45', 'nozzle', 'silround', 'hood'];
+function compute(type, p) {
+  const r = type.calc(p);
+  const round = type.fixed ? type.fixed.shape === 'round' : [p.shape, p.s1, p.s2, p.ns, p.cs].includes('round') || ['mushroom', 'tsagi', 'exhaust45', 'nozzle', 'silround'].includes(type.id);
+  if (SET.zig > 0 && round && ROUND_ZIG.includes(type.id)) r.dev = [...r.dev, `Зиг по окружности на круглых частях: ${SET.zig} мм от края`];
+  return r;
+}
 const SNV_D = [100, 125, 160, 200, 250, 315, 355, 400, 450, 500, 560, 630, 710, 800, 900, 1000];
 function autoPrice(type, p, area) {   // цена за единицу (шт.)
   if (type.perMp) {
