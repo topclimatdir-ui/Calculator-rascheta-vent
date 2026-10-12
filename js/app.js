@@ -34,10 +34,23 @@ const DOC0 = {
 const SET0 = { zigH: 5, sw20: 88, sw30: 108, stripT: 0.5, cornerP: 0, zig: 50, snv: {}, lang: 'uk', disc: 10, vat: 20, rate: { '0.5': 650, '0.7': 850, '1': 1200 }, density: 7850, meshW: 1, woolD: 80 };
 
 let state = { set: structuredClone(SET0), doc: structuredClone(DOC0), items: [], logo: null, sections: ['Повітроводи та фасонні вироби'] };
-try { const s = JSON.parse(localStorage.getItem(LS)); if (s) { Object.assign(state, s); state.set = Object.assign(structuredClone(SET0), s.set); state.doc = Object.assign(structuredClone(DOC0), s.doc); } } catch (e) { }
+try {
+  const s = JSON.parse(localStorage.getItem(LS)), isObj = o => o && typeof o === 'object' && !Array.isArray(o);
+  if (isObj(s)) {
+    state.set = Object.assign(structuredClone(SET0), isObj(s.set) ? s.set : {});
+    state.set.rate = Object.assign({}, SET0.rate, isObj(state.set.rate) ? state.set.rate : {});
+    state.set.snv = isObj(state.set.snv) ? state.set.snv : {};
+    state.doc = Object.assign(structuredClone(DOC0), isObj(s.doc) ? s.doc : {});
+    state.items = Array.isArray(s.items) ? s.items.filter(isObj) : [];
+    state.logo = typeof s.logo === 'string' ? s.logo : null;
+    state.sections = Array.isArray(s.sections) && s.sections.length ? s.sections.map(String) : state.sections;
+  }
+} catch (e) { }
 const save = () => { try { localStorage.setItem(LS, JSON.stringify(state)); } catch (e) { } };
+const KNOWN = new Set(TYPES.map(t => t.id));
 const syncSet = () => { SET.density = +state.set.density; SET.meshW = +state.set.meshW; SET.woolD = +state.set.woolD; SET.zig = +state.set.zig; SET.zigH = +state.set.zigH || 5; SET.sw20 = +state.set.sw20; SET.sw30 = +state.set.sw30; SET.stripT = +state.set.stripT; SET.cornerP = +state.set.cornerP; };
 syncSet();
+state.items = (Array.isArray(state.items) ? state.items : []).filter(it => { try { return it && KNOWN.has(it.type) && (TYPES.find(t => t.id === it.type).calc(it.p), true); } catch (e) { return false; } });
 
 /* ---------- 3D-просмотр ---------- */
 function makeScene() {
@@ -66,20 +79,27 @@ function buildModel(type, p) {
 }
 
 const view = { el: $('#view') };
-view.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-view.renderer.setPixelRatio(Math.min(2, devicePixelRatio));
-view.el.appendChild(view.renderer.domElement);
-view.dim = document.createElement('canvas'); view.dim.className = 'dimcv'; view.el.appendChild(view.dim);
-view.scene = makeScene();
-view.cam = new THREE.PerspectiveCamera(35, 1, 1, 1000);
-view.controls = new THREE.OrbitControls(view.cam, view.renderer.domElement);
-view.controls.enableDamping = true; view.controls.autoRotate = true; view.controls.autoRotateSpeed = 2.2;
+view.dim = document.createElement('canvas'); view.dim.className = 'dimcv';
+try {
+  view.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  view.renderer.setPixelRatio(Math.min(2, devicePixelRatio));
+  view.el.appendChild(view.renderer.domElement);
+  view.el.appendChild(view.dim);
+  view.scene = makeScene();
+  view.cam = new THREE.PerspectiveCamera(35, 1, 1, 1000);
+  view.controls = new THREE.OrbitControls(view.cam, view.renderer.domElement);
+  view.controls.enableDamping = true; view.controls.autoRotate = true; view.controls.autoRotateSpeed = 2.2;
+} catch (e) {   // WebGL отключён в браузере: остальной калькулятор и КП продолжают работать без 3D
+  view.renderer = null;
+  view.el.innerHTML = '<p style="padding:16px;color:#b3261e">3D-картинка недоступна: в браузере отключён WebGL (включите аппаратное ускорение в настройках браузера). Расчёт и КП работают.</p>';
+}
 function resizeView() {
+  if (!view.renderer) return;
   const w = view.el.clientWidth, h = view.el.clientHeight;
   view.renderer.setSize(w, h); view.dim.width = w * 2; view.dim.height = h * 2; view.cam.aspect = w / h; view.cam.updateProjectionMatrix();
 }
 new ResizeObserver(resizeView).observe(view.el);
-(function loop() {
+if (view.renderer) (function loop() {
   requestAnimationFrame(loop); view.controls.update(); view.renderer.render(view.scene, view.cam);
   const c = view.dim.getContext('2d'); c.setTransform(2, 0, 0, 2, 0, 0); c.clearRect(0, 0, view.dim.width, view.dim.height);
   if (view.model && $('#dimsOn').checked) drawDims(c, view.cam, view.el.clientWidth, view.el.clientHeight, view.model.userData.m, view.model.userData.dims, 12);
@@ -87,6 +107,9 @@ new ResizeObserver(resizeView).observe(view.el);
 
 const thumb = { renderer: null };
 function snapshot(type, p, w = 960, h = 720, fs = 28) {
+  try { return snapshotImpl(type, p, w, h, fs); } catch (e) { console.error(e); return ''; }   // без WebGL позиция добавляется без картинки
+}
+function snapshotImpl(type, p, w, h, fs) {
   if (!thumb.renderer) {
     thumb.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
     thumb.renderer.setPixelRatio(1); thumb.scene = makeScene(); thumb.cam = new THREE.PerspectiveCamera(35, 1, 1, 1000);
@@ -170,6 +193,7 @@ function update() {
   timer = setTimeout(rebuild, 60);
 }
 function rebuild() {
+  if (!view.renderer) return;
   if (view.model) { view.scene.remove(view.model); }
   try {
     view.model = buildModel(cur.type, cur.p);
@@ -192,7 +216,7 @@ $('#fields').addEventListener('input', e => {
   update();
 });
 $('#style').addEventListener('change', e => { VIEW.style = e.target.value; rebuild(); });
-$('#rot').addEventListener('change', e => { view.controls.autoRotate = e.target.checked; });
+$('#rot').addEventListener('change', e => { if (view.controls) view.controls.autoRotate = e.target.checked; });
 
 $('#add').addEventListener('click', () => {
   if (!numericOk()) return;
@@ -211,12 +235,13 @@ $('#cancel').addEventListener('click', () => setEntry(cur.entry));
 /* ---------- КП ---------- */
 function rowsData() {
   const L = state.set, disc = (+L.disc || 0) / 100;
-  return state.items.map(it => {
-    const type = TYPES.find(t => t.id === it.type), r = compute(type, it.p);
-    const price = it.price != null ? it.price : autoPrice(type, it.p, r);
-    const pd = Math.round(price * (1 - disc) * 100) / 100;
-    return { it, name: type.label(it.p), th: it.p.t, r, price, pd, sr: price * it.qty, sd: pd * it.qty, area: r.area * it.qty, w: r.weight * it.qty };
-  });
+  return state.items.map(it => { try { return rowOf(it, disc); } catch (e) { console.error(e); return null; } }).filter(Boolean);
+}
+function rowOf(it, disc) {
+  const type = TYPES.find(t => t.id === it.type), r = compute(type, it.p);
+  const price = it.price != null ? it.price : autoPrice(type, it.p, r);
+  const pd = Math.round(price * (1 - disc) * 100) / 100;
+  return { it, name: type.label(it.p), th: it.p.t, r, price, pd, sr: price * it.qty, sd: pd * it.qty, area: r.area * it.qty, w: r.weight * it.qty };
 }
 function renderKP() {
   const T = TXT[state.set.lang], rows = rowsData();
