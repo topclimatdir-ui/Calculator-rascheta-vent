@@ -12,11 +12,11 @@ const TXT = {
   uk: { title: 'КОМЕРЦІЙНА ПРОПОЗИЦІЯ', no: '№', from: 'від', obj: "Об'єкт:", cust: 'Замовник:', n: '№', name: 'Найменування', qty: 'К-сть',
     pr: 'Ціна роздріб, грн', sr: 'Сума роздріб, грн', pd: 'Ціна зі знижкою, грн', sd: 'Сума зі знижкою, грн', area: 'Площа, м²', w: 'Вага, кг',
     section: 'Розділ', secTotal: 'Разом по розділу', conds: 'УМОВИ', total: 'ПІДСУМОК', all: 'ВСЬОГО, грн', vat: 'у т.ч. ПДВ', disc: 'Знижка',
-    comm: 'Коментарі', sign: 'підпис', mp: 'М.П.', unit: 'шт.', sumArea: 'Загальна площа, м²', sumW: 'Загальна вага, кг', retail: 'Разом роздріб, грн' },
+    comm: 'Коментарі', sk: 'ЕСКІЗ ВИРОБУ ДЛЯ ПОГОДЖЕННЯ', params: 'Параметри', ag: 'Погоджено замовником', dt: 'Дата', sign: 'підпис', mp: 'М.П.', unit: 'шт.', sumArea: 'Загальна площа, м²', sumW: 'Загальна вага, кг', retail: 'Разом роздріб, грн' },
   ru: { title: 'КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ', no: '№', from: 'от', obj: 'Объект:', cust: 'Заказчик:', n: '№', name: 'Наименование', qty: 'Кол-во',
     pr: 'Цена розница, грн', sr: 'Сумма розница, грн', pd: 'Цена со скидкой, грн', sd: 'Сумма со скидкой, грн', area: 'Площадь, м²', w: 'Вес, кг',
     section: 'Раздел', secTotal: 'Итого по разделу', conds: 'УСЛОВИЯ', total: 'ИТОГО', all: 'ВСЕГО, грн', vat: 'в т.ч. НДС', disc: 'Скидка',
-    comm: 'Комментарии', sign: 'подпись', mp: 'М.П.', unit: 'шт.', sumArea: 'Общая площадь, м²', sumW: 'Общий вес, кг', retail: 'Итого розница, грн' },
+    comm: 'Комментарии', sk: 'ЭСКИЗ ИЗДЕЛИЯ ДЛЯ СОГЛАСОВАНИЯ', params: 'Параметры', ag: 'Согласовано заказчиком', dt: 'Дата', sign: 'подпись', mp: 'М.П.', unit: 'шт.', sumArea: 'Общая площадь, м²', sumW: 'Общий вес, кг', retail: 'Итого розница, грн' },
 };
 
 const today = new Date(), iso = d => d.toISOString().slice(0, 10);
@@ -86,17 +86,18 @@ new ResizeObserver(resizeView).observe(view.el);
 })();
 
 const thumb = { renderer: null };
-function snapshot(type, p) {
+function snapshot(type, p, w = 960, h = 720, fs = 28) {
   if (!thumb.renderer) {
     thumb.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
-    thumb.renderer.setPixelRatio(1); thumb.renderer.setSize(960, 720); thumb.scene = makeScene(); thumb.cam = new THREE.PerspectiveCamera(35, 960 / 720, 1, 1000);
-    thumb.cv = document.createElement('canvas'); thumb.cv.width = 960; thumb.cv.height = 720;
+    thumb.renderer.setPixelRatio(1); thumb.scene = makeScene(); thumb.cam = new THREE.PerspectiveCamera(35, 1, 1, 1000);
+    thumb.cv = document.createElement('canvas');
   }
+  thumb.renderer.setSize(w, h); thumb.cv.width = w; thumb.cv.height = h; thumb.cam.aspect = w / h; thumb.cam.updateProjectionMatrix();
   const root = buildModel(type, p); frame(root, thumb.cam); thumb.scene.add(root);
   thumb.renderer.render(thumb.scene, thumb.cam);
   const c = thumb.cv.getContext('2d');
-  c.fillStyle = '#fff'; c.fillRect(0, 0, 960, 720); c.drawImage(thumb.renderer.domElement, 0, 0);
-  drawDims(c, thumb.cam, 960, 720, root.userData.m, root.userData.dims, 28);
+  c.fillStyle = '#fff'; c.fillRect(0, 0, w, h); c.drawImage(thumb.renderer.domElement, 0, 0);
+  drawDims(c, thumb.cam, w, h, root.userData.m, root.userData.dims, fs);
   thumb.scene.remove(root);
   return thumb.cv.toDataURL('image/png');
 }
@@ -222,7 +223,7 @@ function renderKP() {
       body += `<tr data-id="${r.it.id}">
         <td class="c">${no}</td>
         <td class="nm"><img src="${r.it.thumb}" alt=""><div><b>${esc(r.name)}</b><small>δ ${String(r.th).replace('.', ',')} мм</small></div>
-          <span class="rowbtn no-print"><button data-act="edit" title="Изменить">✎</button><button data-act="del" title="Удалить">✕</button></span></td>
+          <span class="rowbtn no-print"><button data-act="sk" title="Печать эскиза для заказчика">🖨</button><button data-act="edit" title="Изменить">✎</button><button data-act="del" title="Удалить">✕</button></span></td>
         <td class="c"><input class="qty" type="number" min="1" value="${r.it.qty}" data-f="qty"> <small>${T.unit}</small></td>
         <td class="r"><input class="pr" type="text" value="${money(r.price)}" data-f="price"></td>
         <td class="r">${money(r.sr)}</td><td class="r">${money(r.pd)}</td><td class="r">${money(r.sd)}</td>
@@ -255,6 +256,7 @@ $('#tbl').addEventListener('change', e => {
 $('#tbl').addEventListener('click', e => {
   const b = e.target.closest('button[data-act]'); if (!b) return;
   const id = b.closest('tr').dataset.id, it = state.items.find(x => x.id == id);
+  if (b.dataset.act === 'sk') { printSketch(TYPES.find(t => t.id === it.type), it.p, it.qty); return; }
   if (b.dataset.act === 'del') { state.items = state.items.filter(x => x !== it); save(); renderKP(); return; }
   cur.type = TYPES.find(t => t.id === it.type); cur.p = { ...it.p }; cur.editId = it.id; cur.lock = [];
   cur.entry = ENTRIES.findIndex(e => e.id === it.type && Object.entries(e.preset).every(([k, v]) => it.p[k] === v)); 
@@ -262,6 +264,25 @@ $('#tbl').addEventListener('click', e => {
   $('#add').textContent = '✓ Сохранить изменения'; $('#cancel').hidden = false;
   renderTypes(); renderForm(); update(); $('#constructor').scrollIntoView({ behavior: 'smooth' });
 });
+
+/* ---------- печать эскиза для заказчика ---------- */
+function printSketch(type, p, qty) {
+  const T = TXT[state.set.lang], r = compute(type, p), D = state.doc;
+  const rows = type.fields.filter(f => !f.show || f.show(p)).filter(f => !(f.k === 'shape' || f.k === 's1' || f.k === 's2') || true).map(f => {
+    const v = f.sel ? (f.sel.find(o => o[0] === p[f.k]) || [, p[f.k]])[1] : p[f.k];
+    return `<tr><td>${esc(f.l)}</td><td>${esc(v)}</td></tr>`;
+  }).join('') + `<tr><td>Толщина металла, мм</td><td>${String(p.t).replace('.', ',')}</td></tr>` + (qty ? `<tr><td>${T.qty}</td><td>${qty} ${T.unit}</td></tr>` : '') +
+    `<tr><td>${T.area}</td><td>${num(r.area)}</td></tr><tr><td>${T.w}</td><td>${num(r.weight, 2)}</td></tr>`;
+  $('#sketch').innerHTML = `<div class="skh"><img src="${state.logo || LOGO}" alt=""><div><b>${esc(D.company)}</b><br><small>${esc(D.legal)}</small></div><div class="skc">${esc(D.contacts).replace(/\n/g, '<br>')}</div></div>
+    <h2>${T.sk}</h2><p class="skm">${T.obj} ${esc(D.obj)} &nbsp; ${T.cust} ${esc(D.cust)}</p><h3>${esc(type.label(p))}</h3>
+    <div class="skb"><img class="skimg" src="${snapshot(type, p, 1500, 1050, 40)}" alt=""><div><h4>${T.params}</h4><table>${rows}</table>
+    <ul>${r.dev.map(d => `<li>${esc(d)}</li>`).join('')}</ul></div></div>
+    <div class="sks"><span>${T.ag}: ______________________</span><span>${T.dt}: ______________</span></div>`;
+  document.body.classList.add('sk');
+  const done = () => { document.body.classList.remove('sk'); window.removeEventListener('afterprint', done); };
+  window.addEventListener('afterprint', done); setTimeout(() => window.print(), 150);
+}
+$('#sketchBtn').addEventListener('click', () => { if (numericOk()) printSketch(cur.type, cur.p, 0); });
 
 /* ---------- поля документа, настройки, логотип ---------- */
 function bindDoc() {
@@ -286,7 +307,8 @@ function bindSettings() {
     });
   });
 }
-function showLogo() { $('#logo').src = state.logo || 'img/logo.png'; }
+const LOGO = 'img/logo.png';
+function showLogo() { $('#logo').src = state.logo || LOGO; }
 $('#logoFile').addEventListener('change', e => {
   const f = e.target.files[0]; if (!f) return;
   const img = new Image(), url = URL.createObjectURL(f);

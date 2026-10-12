@@ -85,3 +85,19 @@ h2 input[type=date], .kv input[type=date] { width: auto; border: 0; padding: 0; 
 }
 
 .sub { font-size: 13px; color: var(--teal); margin: 14px 0 6px; }
+
+#sketch { display: none; }
+@media print {
+  body.sk main, body.sk .top { display: none !important; }
+  body.sk #sketch { display: block; padding: 6mm; font-size: 13px; }
+  .skh { display: flex; align-items: center; gap: 14px; background: var(--teal); color: #fff; padding: 10px 16px; border-radius: 6px; }
+  .skh img { width: 60px; height: 60px; border-radius: 50%; background: #fff; } .skh > div:nth-child(2) { flex: 1; font-size: 20px; } .skc { text-align: right; font-size: 11px; }
+  #sketch h2 { color: var(--teal); font-size: 18px; margin: 14px 0 4px; } #sketch h3 { font-size: 16px; margin: 6px 0 10px; } #sketch h4 { margin: 0 0 6px; color: var(--teal); }
+  .skm { margin: 0; color: #4a5668; }
+  .skb { display: grid; grid-template-columns: 1.7fr 1fr; gap: 16px; align-items: start; }
+  .skimg { width: 100%; border: 1px solid #c3ccd8; }
+  #sketch table { width: 100%; border-collapse: collapse; } #sketch td { border: 1px solid #c3ccd8; padding: 4px 6px; } #sketch td:last-child { text-align: right; font-weight: 700; }
+  #sketch ul { font-size: 11px; color: #4a5668; padding-left: 16px; }
+  .sks { display: flex; justify-content: space-between; margin-top: 40px; }
+}
+@media screen { .btns button#sketchBtn { background: #fff; } }
