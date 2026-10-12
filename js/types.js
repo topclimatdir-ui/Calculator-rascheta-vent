@@ -773,20 +773,33 @@ def({
 const grow = (s, d) => (s.t === 'round' ? { t: 'round', d: s.d + 2 * d } : { t: 'rect', a: s.a + 2 * d, b: s.b + 2 * d });
 def({
   id: 'flex', name: 'Гибкая вставка',
-  fields: [selF('shape', 'Сечение', SH, 'rect'), ...dims('', '', 'shape', 500, 500, 300), numF('L', 'Длина вставки L, мм', 200),
+  fields: [selF('shape', 'Сечение', SH, 'rect'), ...dims('', '', 'shape', 500, 500, 300), numF('L', 'Длина ткани L, мм', 200),
+    numF('lk', 'Металлические обечайки по краям, мм', 45, 0, p => p.shape === 'round'),
     { k: 'fg', l: 'Фланец (шинорейка)', sel: [['S20', 'Фланец S20'], ['S30', 'Фланец S30'], ['none', 'Без фланца']], v: 'S20', show: p => p.shape === 'rect' }],
-  label: p => `Гибкая вставка ${p.shape === 'round' ? 'круглая' : 'прямоугольная'} ${dimStr(shapeOf(p))}, L=${p.L}${p.fg && p.fg !== 'none' && p.shape === 'rect' ? ', фланец ' + p.fg : ''}`,
+  label: p => `Гибкая вставка ${p.shape === 'round' ? 'круглая' : 'прямоугольная'} ${dimStr(shapeOf(p))}, ` + (p.shape === 'round' ? `${p.lk}×${p.L}×${p.lk} (L=${p.L + 2 * p.lk})` : `L=${p.L}`) + `${p.fg && p.fg !== 'none' && p.shape === 'rect' ? ', фланец ' + p.fg : ''}`,
   calc(p) {
     const s = shapeOf(p), fab = m2(perim(s) * p.L);
+    if (s.t === 'round') {
+      const col = m2(2 * perim(s) * p.lk);
+      return res(fab + col, fab * 0.6 + wt(col, p.t), [`Ткань: ${n1(perim(s))} × ${p.L} мм (${num(fab)} м²), вес ткани 0,6 кг/м²`,
+        `Обечайки: 2 × ${n1(perim(s))} × ${p.lk} мм из металла (${num(col)} м²)`, `Общая длина ${p.L + 2 * p.lk} мм (${p.lk}×${p.L}×${p.lk})`, 'Цену задайте в КП вручную']);
+    }
     return res(fab, fab * 0.6, [`Ткань: ${n1(perim(s))} × ${p.L} мм (${num(fab)} м²), вес ткани 0,6 кг/м²`, 'Цену задайте в КП вручную']);
   },
   build(p) {
-    const g = new THREE.Group(), s = shapeOf(p), h = p.L / 2, n = Math.max(4, Math.round(p.L / 25)), rings = [];
+    const g = new THREE.Group(), s = shapeOf(p), h = p.L / 2, n = Math.max(4, Math.round(p.L / 25)), rings = [], round = s.t === 'round';
     for (let i = 0; i <= n; i++) {
-      const z = -h + p.L * i / n, k = i % 2 ? 1 : 0, q = k ? shrink(s, 6) : s;
+      const z = -h + p.L * i / n, k = i % 2 ? 1 : 0, q = k ? shrink(s, round ? 4 : 6) : s;
       rings.push(profilePts(q, z));
     }
-    put(g, ringsGeom(rings), { flat: isFlat(s), color: VIEW.style === 'draw' ? 0xeceff3 : 0x2d3138 });
+    put(g, ringsGeom(rings), { flat: isFlat(s), color: VIEW.style === 'draw' ? 0xeceff3 : (round ? 0x8a9199 : 0x2d3138) });
+    if (round && p.lk > 0) {   // металлические обечайки с закатанным краем и зигом у ткани
+      [-1, 1].forEach(sg => {
+        const z0 = sg * h, z1 = sg * (h + p.lk);
+        put(g, tube(s, Math.min(z0, z1), Math.max(z0, z1)));
+        zig(g, s.d / 2, sg * (h + Math.min(10, p.lk / 3))); zig(g, s.d / 2, sg * (h + p.lk - 4));
+      });
+    }
     if (p.shape === 'rect' && p.fg && p.fg !== 'none') { drawFlange(g, s, at(0, 0, -h, PI), p.fg); drawFlange(g, s, at(0, 0, h, 0), p.fg); }
     return g;
   },
