@@ -186,7 +186,10 @@ const ductBuild = function (p) { const g = new THREE.Group(), s = shapeOf(p); pu
 /* ребра жёсткости на широких сторонах короба: ёлочка, зедка, диагональные зиги */
 function ribSegments(type, w, L, step) {   // сегменты [u0, z0, u1, z1] на грани шириной w, длиной L
   const m = 50, h = w / 2 - m, out = [];
-  if (type === 'diag') {
+  if (type === 'cross') {   // поперечные параллельные зиги с равным шагом по всей длине (как на коробах из каталога)
+    const n = Math.max(1, Math.floor(L / step)), z0 = -L / 2 + (L - (n - 1) * step) / 2;
+    for (let i = 0; i < n; i++) out.push([-w / 2 + 15, z0 + i * step, w / 2 - 15, z0 + i * step]);
+  } else if (type === 'diag') {
     const n = Math.max(1, Math.round(L / w)), pl = L / n;
     for (let i = 0; i < n; i++) { const za = -L / 2 + pl * i + m, zb = -L / 2 + pl * (i + 1) - m; out.push([-h, za, h, zb], [-h, zb, h, za]); }
   } else if (type === 'yolka') {   // «ёлочка»: шевроны через каждые step мм, первый — на расстоянии step от края
@@ -206,13 +209,13 @@ function addRibs(g, p) {
   if (p.A >= p.ribMin) { face(p.A, p.B / 2, 'y', 1); face(p.A, -p.B / 2, 'y', -1); }
   if (p.B >= p.ribMin) { face(p.B, p.A / 2, 'x', 1); face(p.B, -p.A / 2, 'x', -1); }
 }
-const RIB_NAMES = { yolka: 'ёлочка', zedka: 'зедка', diag: 'диагональные зиги (X)' };
+const RIB_NAMES = { cross: 'поперечные', yolka: 'ёлочка', zedka: 'зедка', diag: 'диагональные зиги (X)' };
 def({
   id: 'box', name: 'Короб прямоугольный', fixed: { shape: 'rect' },
   fields: [numF('A', 'Ширина A, мм', 500, 20), numF('B', 'Высота B, мм', 300, 20), numF('L', 'Длина L, мм', 1250),
-    selF('rib', 'Рёбра жёсткости (зиги)', [['none', 'Нет'], ['yolka', 'Ёлочка'], ['zedka', 'Зедка'], ['diag', 'Диагональные (X)']], 'none'),
-    numF('ribMin', 'Рёбра на сторонах от, мм', 400, 100, p => p.rib !== 'none'),
-    numF('ribStep', 'Шаг зигов, мм', 150, 50, p => p.rib === 'yolka' || p.rib === 'zedka')],
+    selF('rib', 'Рёбра жёсткости (зиги)', [['none', 'Нет'], ['cross', 'Поперечные (через шаг)'], ['yolka', 'Ёлочка'], ['zedka', 'Зедка'], ['diag', 'Диагональные (X)']], 'none'),
+    numF('ribMin', 'Рёбра на сторонах от, мм', 300, 100, p => p.rib !== 'none'),
+    numF('ribStep', 'Шаг зигов, мм', 150, 50, p => p.rib === 'cross' || p.rib === 'yolka' || p.rib === 'zedka')],
   label: p => `Короб прямоугольный ${p.A}×${p.B}, L=${p.L}` + (p.rib && p.rib !== 'none' ? ', рёбра: ' + RIB_NAMES[p.rib] : ''),
   calc(p) {
     const r = ductCalc.call(this, p);
