@@ -39,7 +39,12 @@ const ANN = {
   },
   transition(p) {
     const s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'), k = kk(hx(s1) * 2, hx(s2) * 2, p.L * 0.6), m = Math.max(hx(s1), hx(s2) + Math.abs(p.off));
-    return [...sec(s1, 0, k), ...sec(s2, p.L, k, p.off), lin(V(m, 0, 0), V(m, 0, p.L), V(k, 0, 0), 'L=' + p.L)];
+    const out = [...sec(s1, 0, k), ...sec(s2, p.L, k, p.off), lin(V(m, 0, 0), V(m, 0, p.L), V(k, 0, 0), 'L=' + p.L)];
+    if (p.nip > 0 && s1.t !== s2.t) {
+      const first = s1.t === 'round', s = first ? s1 : s2, ox = first ? 0 : p.off, z0 = first ? -p.nip : p.L, z1 = first ? 0 : p.L + p.nip;
+      out.push(lin(V(ox, s.d / 2, z0), V(ox, s.d / 2, z1), V(0, k, 0), String(p.nip)));
+    }
+    return out;
   },
   tee(p) {
     const s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'), al = p.ang * PI / 180, sin = Math.sin(al), h = p.L / 2;

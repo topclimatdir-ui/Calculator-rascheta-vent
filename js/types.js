@@ -236,23 +236,33 @@ def({
 });
 
 /* 3. Переход */
+const nipOf = p => {   // круглая врезка на круглом конце перехода «круг ↔ прямоугольник»
+  const s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2');
+  if (!(p.nip > 0) || s1.t === s2.t) return null;
+  return s1.t === 'round' ? { s: s1, z0: -p.nip, z1: 0, ox: 0 } : { s: s2, z0: p.L, z1: p.L + p.nip, ox: p.off };
+};
 def({
   id: 'transition', name: 'Переход',
   fields: [selF('s1', 'Сечение на входе', SH, 'round'), ...dims('1', 'входа', 's1', 315, 500, 300),
     selF('s2', 'Сечение на выходе', SH, 'round'), ...dims('2', 'выхода', 's2', 200, 400, 200),
-    numF('L', 'Длина L, мм', 400), { k: 'off', l: 'Смещение оси (эксцентрик), мм', v: 0, min: -5000 }],
-  label: p => `Переход ${dimStr(shapeOf(p, '1', 's1'))} → ${dimStr(shapeOf(p, '2', 's2'))}, L=${p.L}`,
+    numF('L', 'Длина L, мм', 400), { k: 'off', l: 'Смещение оси (эксцентрик), мм', v: 0, min: -5000 },
+    { k: 'nip', l: 'Круглая врезка, мм (круг ↔ прямоугольник)', v: 80, min: 0, show: p => p.s1 !== p.s2 }],
+  label: p => `Переход ${dimStr(shapeOf(p, '1', 's1'))} → ${dimStr(shapeOf(p, '2', 's2'))}, L=${p.L}` + (nipOf(p) ? `, врезка ${p.nip}` : ''),
   geom(p) { const s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'); return loft(s1, 0, s2, p.L, p.off); },
   calc(p) {
-    const s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'), a = m2(geomArea(this.geom(p)));
+    const s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'), nip = nipOf(p);
+    const a = m2(geomArea(this.geom(p)) + (nip ? perim(nip.s) * p.nip : 0));
     const dev = [`Периметры: вход ${n1(perim(s1))} мм, выход ${n1(perim(s2))} мм`];
     if (s1.t === 'round' && s2.t === 'round' && !p.off) dev.push(conicDev(s1.d, s2.d, p.L));
     else dev.push('Площадь — по 3D-модели; развёртка — по лекалу');
+    if (nip) dev.push(`Круглая врезка Ø${n1(nip.s.d)} × ${p.nip} мм: заготовка ${n1(perim(nip.s))} × ${p.nip} мм`);
     return res(a, wt(a, p.t), dev);
   },
   build(p) {
-    const g = new THREE.Group(), s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2');
-    put(g, this.geom(p), { flat: isFlat(s1, s2) }); return g;
+    const g = new THREE.Group(), s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'), nip = nipOf(p);
+    put(g, this.geom(p), { flat: isFlat(s1, s2) });
+    if (nip) { const t = new THREE.Group(); put(t, tube(nip.s, nip.z0, nip.z1)); t.position.x = nip.ox; g.add(t); }
+    return g;
   },
 });
 
