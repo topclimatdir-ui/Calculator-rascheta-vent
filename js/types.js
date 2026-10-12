@@ -673,6 +673,34 @@ def({
   },
 });
 
+/* 19. Гибкая вставка */
+const grow = (s, d) => (s.t === 'round' ? { t: 'round', d: s.d + 2 * d } : { t: 'rect', a: s.a + 2 * d, b: s.b + 2 * d });
+def({
+  id: 'flex', name: 'Гибкая вставка',
+  fields: [selF('shape', 'Сечение', SH, 'rect'), ...dims('', '', 'shape', 500, 500, 300), numF('L', 'Длина вставки L, мм', 200),
+    selF('fl', 'Фланец', [['S20', 'Фланец S20'], ['none', 'Без фланца']], 'S20')],
+  label: p => `Гибкая вставка ${p.shape === 'round' ? 'круглая' : 'прямоугольная'} ${dimStr(shapeOf(p))}, L=${p.L}${p.fl === 'S20' ? ', фланец S20' : ''}`,
+  calc(p) {
+    const s = shapeOf(p), fab = m2(perim(s) * p.L), fl = p.fl === 'S20' ? 2 * perim(s) / 1000 : 0;   // м.п. профиля
+    return res(fab, fab * 0.6 + fl * 0.35, [`Ткань: ${n1(perim(s))} × ${p.L} мм (${num(fab)} м²)`, p.fl === 'S20' ? `Фланец S20: 2 × ${n1(perim(s))} мм профиля (${num(fl, 2)} м.п.)` : 'Без фланцев',
+      'Вес: ткань 0,6 кг/м² + профиль S20 0,35 кг/м.п.; цену задайте в КП вручную']);
+  },
+  build(p) {
+    const g = new THREE.Group(), s = shapeOf(p), h = p.L / 2, n = Math.max(4, Math.round(p.L / 25)), rings = [];
+    for (let i = 0; i <= n; i++) {
+      const z = -h + p.L * i / n, k = i % 2 ? 1 : 0, q = k ? shrink(s, 6) : s;
+      rings.push(profilePts(q, z));
+    }
+    put(g, ringsGeom(rings), { flat: isFlat(s), color: VIEW.style === 'draw' ? 0xeceff3 : 0x4a5668 });
+    if (p.fl === 'S20') [-h, h].forEach(z => {
+      const out = grow(s, 20), lip = z < 0 ? [z - 20, z] : [z, z + 20];
+      put(g, loft(s, z, out, z), { flat: isFlat(s) }); put(g, tube(out, lip[0], lip[1]), { flat: isFlat(s) });
+    });
+    return g;
+  },
+});
+const shrink = (s, d) => (s.t === 'round' ? { t: 'round', d: s.d - 2 * d } : { t: 'rect', a: s.a - 2 * d, b: s.b - 2 * d });
+
 /* общие помощники для интерфейса */
 function defaultsOf(type) {
   const p = {};
