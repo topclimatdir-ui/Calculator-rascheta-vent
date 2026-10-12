@@ -22,7 +22,7 @@ const PLACE = {
   },
   tee(p) {
     const s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'), out = [];
-    if (s1.t === 'rect' && p.kind !== 'saddle') out.push({ s: s1, m: at(0, 0, -p.L / 2, PI) }, { s: s1, m: at(0, 0, p.L / 2, 0) });
+    if (s1.t === 'rect' && p.kind !== 'saddle') out.push({ s: s1, m: at(0, 0, -teeL(p) / 2, PI) }, { s: s1, m: at(0, 0, teeL(p) / 2, 0) });
     if (s2.t === 'rect') teeAngles(p).forEach(a => out.push({ s: s2, m: teeFrame(p, a).multiply(T4(0, 0, teeBranch(p, a).tTop)) }));
     return out;
   },

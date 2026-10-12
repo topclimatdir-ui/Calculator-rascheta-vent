@@ -112,10 +112,10 @@ const GROUPS = [
     ['tee', { s1: 'round', s2: 'round' }, 'Тройник / врезка / крестовина'], ['tap', { shape: 'round', end: 'flat' }, 'Врезка круглая ровная'], ['tap', { shape: 'round', end: 'saddle' }, 'Врезка круглая в трубу'], ['throttle', { shape: 'round' }], ['checkv', { shape: 'round' }], ['cap', { shape: 'round', h: 80 }], ['mesh', { shape: 'round', fw: 80 }],
     ['clamp'], ['mushroom'], ['tsagi'], ['exhaust45'], ['nozzle'], ['silround'], ['flex', { shape: 'round', fg: 'none', L: 75, D: 200 }, 'Гибкая вставка'], ['filterbox', { cs: 'round' }, 'Фильтр-бокс (круглое присоединение)']] },
   { title: 'Прямоугольное сечение', items: [['box'], ['elbow', { shape: 'rect', ends: 100, ang: 90, ri: 0 }, 'Отвод'], ['transition', { s1: 'rect', s2: 'rect', L: 250 }, 'Переход'],
-    ['tee', { s1: 'rect', s2: 'rect', Lb: 80 }, 'Тройник / врезка / крестовина'], ['tap', { shape: 'rect', end: 'flat', ob: 20 }, 'Врезка прямоугольная ровная'], ['tap', { shape: 'rect', end: 'saddle' }, 'Врезка прямоугольная седло'], ['throttle', { shape: 'rect', fg: 'S20' }], ['checkv', { shape: 'rect' }], ['cap', { shape: 'rect' }], ['mesh', { shape: 'rect' }],
+    ['tee', { s1: 'rect', s2: 'rect' }, 'Тройник / врезка / крестовина'], ['tap', { shape: 'rect', end: 'flat', ob: 20 }, 'Врезка прямоугольная ровная'], ['tap', { shape: 'rect', end: 'saddle' }, 'Врезка прямоугольная седло'], ['throttle', { shape: 'rect', fg: 'S20' }], ['checkv', { shape: 'rect' }], ['cap', { shape: 'rect' }], ['mesh', { shape: 'rect' }],
     ['silrect', { fg: 'S20' }, 'Шумоглушитель прямоугольный'], ['filterbox', { cs: 'rect', fg: 'S20' }, 'Фильтр-бокс (прямоуг. присоединение)'], ['cassette'], ['pocketf'], ['flex', { shape: 'rect' }, 'Гибкая вставка (фланец S20)'], ['hood']] },
   { title: 'Комбинированные: круг и прямоугольник', items: [['transition', { s1: 'round', s2: 'rect', L: 250 }, 'Переход круг → прямоугольник'],
-    ['transition', { s1: 'rect', s2: 'round', L: 250 }, 'Переход прямоугольник → круг'], ['tee', { s1: 'rect', s2: 'round', Lb: 80 }, 'Тройник: магистраль прямоуг., ответвление круглое'],
+    ['transition', { s1: 'rect', s2: 'round', L: 250 }, 'Переход прямоугольник → круг'], ['tee', { s1: 'rect', s2: 'round' }, 'Тройник: магистраль прямоуг., ответвление круглое'],
     ['tee', { s1: 'round', s2: 'rect' }, 'Тройник: магистраль круглая, ответвление прямоуг.']] },
 ];
 const ENTRIES = []; GROUPS.forEach((g, gi) => g.items.forEach(([id, preset, label]) => ENTRIES.push({ gi, id, preset: preset || {}, label: label || TYPES.find(t => t.id === id).name })));

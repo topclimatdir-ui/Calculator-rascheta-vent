@@ -355,14 +355,27 @@ function teeBranch(p, a) {
   const tTop = ext.t + p.Lb;   // торец ответвления — плоскость ⟂ оси; Lb отсчитывается от самой дальней точки стенки (короткая сторона)
   return { geom: ringsGeom([pts.map(q => q.pb), pts.map(q => q.base.clone().addScaledVector(d, tTop))]), tTop, ext, zExt, tooWide };
 }
+/* отверстие в стенке магистрали под ответвление: тёмная «заплатка» по контуру врезки на наружной и внутренней стороне стенки */
+function teeHole(p, a, lift) {
+  const s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'), sin = Math.sin(a), cos = Math.cos(a), sg = sin < 0 ? -1 : 1, half = teeHalf(p);
+  const d = new THREE.Vector3(sin, 0, cos), xp = new THREE.Vector3(cos, 0, -sin), O = new THREE.Vector3(sg * half, 0, 0);
+  const rings = [1, 0.8, 0.6, 0.4, 0.2, 0.02].map(f => profilePts(s2, 0).map(v => {
+    v.x *= f; v.y *= f;
+    const xw = s1.t === 'round' ? sg * Math.sqrt(Math.max(0, half * half - v.y * v.y)) : sg * half, t = (xw - O.x - v.x * cos) / sin;
+    const q = O.clone().addScaledVector(xp, v.x).add(new THREE.Vector3(0, v.y, 0)).addScaledVector(d, t); q.x += sg * lift; return q;
+  }));
+  return ringsGeom(rings);
+}
 const teeAngles = p => { const al = Math.min(Math.max(p.ang, 20), 160) * PI / 180; return p.kind === 'cross' ? [al, -al] : [al]; };
+/* длина магистрали: по умолчанию по 80 мм с каждой стороны от места врезки (arm); у старых позиций — прежнее поле L */
+const teeL = p => (p.arm != null ? 2 * (Math.max(...teeAngles(p).map(a => teeBranch(p, a).zExt)) + p.arm) : p.L);
 def({
   id: 'tee', name: 'Тройник / врезка / крестовина',
   fields: [selF('kind', 'Вид', [['tee', 'Тройник'], ['cross', 'Крестовина'], ['saddle', 'Врезка (седло)']], 'tee'),
     selF('s1', 'Сечение магистрали', SH, 'round'),
-    ...dims('1', 'магистрали', 's1', 315, 500, 300), numF('L', 'Длина магистрали L, мм', 600),
+    ...dims('1', 'магистрали', 's1', 315, 500, 300), numF('arm', 'Участок магистрали с каждой стороны от врезки, мм', 80, 0),
     selF('s2', 'Сечение ответвления', SH, 'round'),
-    ...dims('2', 'ответвления', 's2', 200, 300, 200), numF('Lb', 'Длина ответвления по короткой стороне, мм', 300),
+    ...dims('2', 'ответвления', 's2', 200, 300, 200), numF('Lb', 'Длина ответвления по короткой стороне, мм', 80),
     numF('ang', 'Угол ответвления, ° (20…160)', 90, 20)],
   label: p => `${{ tee: 'Тройник', cross: 'Крестовина', saddle: 'Врезка' }[p.kind]} ${''} ${dimStr(shapeOf(p, '1', 's1'))} / ответвление ${dimStr(shapeOf(p, '2', 's2'))}, ${p.ang}°`,
   calc(p) {
@@ -373,20 +386,23 @@ def({
       a = m2(areaB);
       dev = [`Ответвление: ${n1(perim(s2))} × ${n1(p.Lb)} мм по короткой стороне`, 'Отверстие в воздуховоде и седло — по месту'];
     } else {
-      a = m2(perim(s1) * p.L + areaB - hole);
-      dev = [`Магистраль: ${n1(perim(s1))} × ${n1(p.L)} мм`, `Ответвление: ${n1(perim(s2))} × ${n1(p.Lb)} мм по короткой стороне${brs.length > 1 ? ' (2 шт.)' : ''}, угол ${p.ang}°`,
+      a = m2(perim(s1) * teeL(p) + areaB - hole);
+      dev = [`Магистраль: ${n1(perim(s1))} × ${n1(teeL(p))} мм (по ${p.arm != null ? p.arm : '—'} мм с каждой стороны от ответвления)`, `Ответвление: ${n1(perim(s2))} × ${n1(p.Lb)} мм по короткой стороне${brs.length > 1 ? ' (2 шт.)' : ''}, угол ${p.ang}°`,
         `Отверстие(я) в магистрали: ${n1(areaCS(s2) / Math.abs(Math.sin(angs[0])))} мм² (каждое)`];
     }
     if (brs.some(b => b.tooWide)) dev.push('⚠ Ответвление шире круглой магистрали — уменьшите размер');
-    if (p.kind !== 'saddle' && brs.some(b => b.zExt > p.L / 2)) dev.push('⚠ Ответвление выходит за длину магистрали — увеличьте L');
+    if (p.kind !== 'saddle' && p.arm == null && brs.some(b => b.zExt > teeL(p) / 2)) dev.push('⚠ Ответвление выходит за длину магистрали — увеличьте L');
     return res(a, wt(a, p.t), dev);
   },
   build(p) {
     const g = new THREE.Group(), s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'), ghost = p.kind === 'saddle';
-    put(g, tube(s1, -p.L / 2, p.L / 2), { flat: isFlat(s1), opacity: ghost ? 0.22 : 1, edges: !ghost });
-    if (!ghost) zigs(g, s1, -p.L / 2, p.L / 2);
+    const L = teeL(p);
+    put(g, tube(s1, -L / 2, L / 2), { flat: isFlat(s1), opacity: ghost ? 0.22 : 1, edges: !ghost });
+    if (!ghost) zigs(g, s1, -L / 2, L / 2);
     teeAngles(p).forEach(a => {
       const br = teeBranch(p, a); put(g, br.geom, { flat: isFlat(s2) });
+      const dark = new THREE.MeshBasicMaterial({ color: 0x10151b, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+      [0.6, -0.6].forEach(l => g.add(new THREE.Mesh(teeHole(p, a, l), dark)));   // отверстие в стенке магистрали
       if (s2.t === 'round' && p.Lb > SET.zig + 10) { const b = new THREE.Group(); zig(b, s2.d / 2, br.tTop - SET.zig); b.applyMatrix4(teeFrame(p, a)); g.add(b); }
     });
     return g;

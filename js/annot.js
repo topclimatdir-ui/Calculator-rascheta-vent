@@ -49,8 +49,8 @@ const ANN = {
     return out;
   },
   tee(p) {
-    const s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'), h = p.L / 2, k = kk(hx(s1) * 2, hx(s2) * 2);
-    const out = [...sec(s1, h, k), lin(V(0, hy(s1), -h), V(0, hy(s1), h), V(0, k, 0), 'L=' + p.L)];
+    const s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'), h = teeL(p) / 2, k = kk(hx(s1) * 2, hx(s2) * 2);
+    const out = [...sec(s1, h, k), lin(V(0, hy(s1), -h), V(0, hy(s1), h), V(0, k, 0), 'L=' + n1(teeL(p)))];
     teeAngles(p).forEach(a => {
       const tb = teeBranch(p, a), br = [...sec(s2, tb.tTop, k), lin(V(tb.ext.x, tb.ext.y, tb.ext.t), V(tb.ext.x, tb.ext.y, tb.tTop), V(0, k, 0), 'l=' + p.Lb)];
       out.push(...xf(br, teeFrame(p, a)));
