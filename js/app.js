@@ -81,29 +81,37 @@ function buildModel(type, p) {
 const view = { el: $('#view') };
 view.dim = document.createElement('canvas'); view.dim.className = 'dimcv';
 try {
-  view.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  try { view.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }); }
+  catch (e) { view.renderer = new SoftRenderer(); view.soft = true; }   // WebGL отключён: рисуем на обычном 2D-холсте
   view.renderer.setPixelRatio(Math.min(2, devicePixelRatio));
   view.el.appendChild(view.renderer.domElement);
   view.el.appendChild(view.dim);
   view.scene = makeScene();
   view.cam = new THREE.PerspectiveCamera(35, 1, 1, 1000);
   view.controls = new THREE.OrbitControls(view.cam, view.renderer.domElement);
-  view.controls.enableDamping = true; view.controls.autoRotate = true; view.controls.autoRotateSpeed = 2.2;
-} catch (e) {   // WebGL отключён в браузере: остальной калькулятор и КП продолжают работать без 3D
+  view.controls.enableDamping = !view.soft; view.controls.autoRotate = !view.soft; view.controls.autoRotateSpeed = 2.2;
+  if (view.soft) { $('#rot').checked = false; $('#rot').disabled = true; $('.hint').textContent += ' · упрощённый режим 3D (без WebGL)'; }
+} catch (e) {
   view.renderer = null;
-  view.el.innerHTML = '<p style="padding:16px;color:#b3261e">3D-картинка недоступна: в браузере отключён WebGL (включите аппаратное ускорение в настройках браузера). Расчёт и КП работают.</p>';
+  view.el.innerHTML = '<p style="padding:16px;color:#b3261e">3D-картинка недоступна в этом окне. Расчёт и КП работают.</p>';
+}
+function redraw() {
+  if (!view.renderer) return;
+  view.renderer.render(view.scene, view.cam);
+  const c = view.dim.getContext('2d'); c.setTransform(2, 0, 0, 2, 0, 0); c.clearRect(0, 0, view.dim.width, view.dim.height);
+  if (view.model && $('#dimsOn').checked) drawDims(c, view.cam, view.el.clientWidth, view.el.clientHeight, view.model.userData.m, view.model.userData.dims, 12);
 }
 function resizeView() {
   if (!view.renderer) return;
-  const w = view.el.clientWidth, h = view.el.clientHeight;
+  const w = view.el.clientWidth, h = view.el.clientHeight; if (!w || !h) return;
   view.renderer.setSize(w, h); view.dim.width = w * 2; view.dim.height = h * 2; view.cam.aspect = w / h; view.cam.updateProjectionMatrix();
+  if (view.soft) redraw();
 }
 new ResizeObserver(resizeView).observe(view.el);
-if (view.renderer) (function loop() {
-  requestAnimationFrame(loop); view.controls.update(); view.renderer.render(view.scene, view.cam);
-  const c = view.dim.getContext('2d'); c.setTransform(2, 0, 0, 2, 0, 0); c.clearRect(0, 0, view.dim.width, view.dim.height);
-  if (view.model && $('#dimsOn').checked) drawDims(c, view.cam, view.el.clientWidth, view.el.clientHeight, view.model.userData.m, view.model.userData.dims, 12);
-})();
+if (view.renderer) {
+  if (view.soft) { view.controls.addEventListener('change', redraw); $('#dimsOn').addEventListener('change', redraw); }
+  else (function loop() { requestAnimationFrame(loop); view.controls.update(); redraw(); })();
+}
 
 const thumb = { renderer: null };
 function snapshot(type, p, w = 960, h = 720, fs = 28) {
@@ -111,7 +119,7 @@ function snapshot(type, p, w = 960, h = 720, fs = 28) {
 }
 function snapshotImpl(type, p, w, h, fs) {
   if (!thumb.renderer) {
-    thumb.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+    thumb.renderer = view.soft ? new SoftRenderer() : new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
     thumb.renderer.setPixelRatio(1); thumb.scene = makeScene(); thumb.cam = new THREE.PerspectiveCamera(35, 1, 1, 1000);
     thumb.cv = document.createElement('canvas');
   }
@@ -198,6 +206,7 @@ function rebuild() {
   try {
     view.model = buildModel(cur.type, cur.p);
     resizeView(); frame(view.model, view.cam); view.scene.add(view.model);
+    if (view.soft) redraw();
   } catch (e) { console.error(e); }
 }
 function setEntry(i) {
