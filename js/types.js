@@ -424,11 +424,11 @@ def({
 /* 10. Заглушка */
 def({
   id: 'cap', name: 'Заглушка',
-  fields: [selF('shape', 'Сечение', SH, 'round'), ...dims('', '', 'shape', 315, 500, 300), numF('h', 'Высота борта, мм', 30)],
+  fields: [selF('shape', 'Сечение', SH, 'round'), ...dims('', '', 'shape', 315, 500, 300), numF('h', 'Высота борта / гильзы, мм', 30)],
   label: p => `Заглушка ${p.shape === 'round' ? 'круглая' : 'прямоугольная'} ${dimStr(shapeOf(p))}`,
   calc(p) {
     const s = shapeOf(p), a = m2(areaCS(s) + perim(s) * p.h);
-    return res(a, wt(a, p.t), [`Дно: ${s.t === 'round' ? 'Ø' + n1(s.d) : n1(s.a) + '×' + n1(s.b)} мм, борт ${p.h} мм`]);
+    return res(a, wt(a, p.t), [`Дно: ${s.t === 'round' ? 'Ø' + n1(s.d) : n1(s.a) + '×' + n1(s.b)} мм, ${s.t === 'round' ? 'гильза' : 'борт'} ${p.h} мм`]);
   },
   build(p) {
     const g = new THREE.Group(), s = shapeOf(p);
@@ -441,7 +441,7 @@ def({
 /* 11. Сетка защитная */
 def({
   id: 'mesh', name: 'Сетка защитная', t0: 0.7,
-  fields: [selF('shape', 'Сечение', SH, 'round'), ...dims('', '', 'shape', 315, 500, 300), numF('fw', 'Ширина рамки, мм', 20)],
+  fields: [selF('shape', 'Сечение', SH, 'round'), ...dims('', '', 'shape', 315, 500, 300), numF('fw', 'Ширина рамки / гильзы, мм', 20)],
   label: p => `Сетка защитная ${p.shape === 'round' ? 'круглая' : 'прямоугольная'} ${dimStr(shapeOf(p))}`,
   calc(p) {
     const s = shapeOf(p), mesh = m2(areaCS(s)), fr = m2(perim(s) * p.fw);
@@ -450,7 +450,7 @@ def({
   build(p) {
     const g = new THREE.Group(), s = shapeOf(p);
     put(g, tube(s, 0, p.fw), { flat: isFlat(s) });
-    g.add(gridLines(s, () => p.fw / 2, Math.min(40, (s.t === 'round' ? s.d : Math.min(s.a, s.b)) / 12)));
+    g.add(gridLines(s, () => p.fw, Math.min(40, (s.t === 'round' ? s.d : Math.min(s.a, s.b)) / 12)));
     return g;
   },
 });

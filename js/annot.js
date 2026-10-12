@@ -78,9 +78,9 @@ const ANN = {
   },
   cap(p) {
     const s = shapeOf(p), k = kk(hx(s) * 2, hy(s) * 2);
-    return [...sec(s, 0, k), lin(V(hx(s), 0, 0), V(hx(s), 0, p.h), V(k, 0, 0), 'h=' + p.h)];
+    return [...sec(s, 0, k), lin(V(hx(s), 0, 0), V(hx(s), 0, p.h), V(k, 0, 0), String(p.h))];
   },
-  mesh(p) { const s = shapeOf(p); return sec(s, p.fw / 2, kk(hx(s) * 2, hy(s) * 2)); },
+  mesh(p) { const s = shapeOf(p), k = kk(hx(s) * 2, hy(s) * 2); return [...sec(s, p.fw, k), lin(V(hx(s), 0, 0), V(hx(s), 0, p.fw), V(k, 0, 0), String(p.fw))]; },
   silround(p) {
     const Dk = p.D + 2 * p.s, h = p.L / 2, k = kk(Dk);
     return [lin(V(-Dk / 2, 0, h), V(Dk / 2, 0, h), V(0, -k, 0), 'Ø' + Dk), lin(V(-p.D / 2, 0, h + 60), V(p.D / 2, 0, h + 60), V(0, -k * 1.7, 0), 'Ø' + p.D),
