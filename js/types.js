@@ -773,35 +773,41 @@ def({
 });
 const shrink = (s, d) => (s.t === 'round' ? { t: 'round', d: s.d - 2 * d } : { t: 'rect', a: s.a - 2 * d, b: s.b - 2 * d });
 
-/* 20. Врезка: ровная или седло под трубу (круглая и прямоугольная) */
-const tapDepth = (r, x) => r - Math.sqrt(Math.max(0, r * r - x * x));   // на сколько поверхность трубы уходит вниз на расстоянии x от оси врезки
+/* 20. Врезка: ровная или седло под трубу (круглая и прямоугольная) с отбортовкой по контуру.
+   Труба лежит вдоль оси X: у прямоугольной врезки сторона A идёт вдоль трубы, B — поперёк (по окружности). */
+const tapDepth = (r, y) => r - Math.sqrt(Math.max(0, r * r - y * y));   // на сколько поверхность трубы уходит вниз на расстоянии y от верхней линии
+const tapZ = (p, v) => (p.end === 'saddle' ? -tapDepth(p.Dm / 2, Math.min(Math.abs(v.y), p.Dm / 2)) : 0);
 def({
   id: 'tap', name: 'Врезка',
   fields: [selF('shape', 'Сечение', SH, 'round'), ...dims('', '', 'shape', 200, 300, 200),
     selF('end', 'Торец', [['flat', 'Ровная'], ['saddle', 'Седло (в трубу)']], 'flat'),
-    numF('Lb', 'Высота врезки, мм', 80), numF('Dm', 'Диаметр трубы, мм', 315, 50, p => p.end === 'saddle')],
-  label: p => `Врезка ${p.shape === 'round' ? 'круглая' : 'прямоугольная'} ${dimStr(shapeOf(p))}, ${p.end === 'saddle' ? 'седло в трубу Ø' + p.Dm : 'ровная'}, h=${p.Lb}`,
+    numF('Lb', 'Высота врезки, мм', 80), numF('ob', 'Отбортовка, мм', 10, 0), numF('Dm', 'Диаметр трубы, мм', 315, 50, p => p.end === 'saddle')],
+  label: p => `Врезка ${p.shape === 'round' ? 'круглая' : 'прямоугольная'} ${dimStr(shapeOf(p))}, ${p.end === 'saddle' ? 'седло в трубу Ø' + p.Dm : 'ровная'}, h=${p.Lb}, отбортовка ${p.ob}`,
   geom(p) {
     const s = shapeOf(p), bot = profilePts(s, 0), top = profilePts(s, p.Lb);
-    if (p.end === 'saddle') { const r = p.Dm / 2; bot.forEach(v => { v.z = -tapDepth(r, Math.min(Math.abs(v.x), r)); }); }
-    return ringsGeom([bot, top]);
+    bot.forEach(v => { v.z = tapZ(p, v); });
+    const lip = p.ob > 0 ? profilePts(grow(s, p.ob), 0) : null;
+    if (lip) lip.forEach(v => { v.z = tapZ(p, v); });
+    return { body: ringsGeom([bot, top]), lip: lip ? ringsGeom([bot, lip]) : null };
   },
   calc(p) {
-    const s = shapeOf(p), r = p.Dm / 2, a = m2(geomArea(this.geom(p))), dev = [`Врезка: ${n1(perim(s))} × ${p.Lb} мм по короткой стороне`];
+    const s = shapeOf(p), r = p.Dm / 2, G = this.geom(p), a = m2(geomArea(G.body) + (G.lip ? geomArea(G.lip) : 0));
+    const dev = [`Врезка: ${n1(perim(s))} × ${p.Lb} мм по короткой стороне`, `Отбортовка по контуру: ${p.ob} мм`];
     if (p.end === 'saddle') {
-      const x = (s.t === 'round' ? s.d : s.a) / 2;
-      dev.push(`Седло под трубу Ø${p.Dm}: глубина выреза ${n1(tapDepth(r, Math.min(x, r)))} мм`);
-      if (x > r) dev.push('⚠ Врезка шире трубы — уменьшите размер');
+      const y = (s.t === 'round' ? s.d : s.b) / 2;
+      dev.push(`Седло под трубу Ø${p.Dm}, развёрнуто по трубе: глубина выреза ${n1(tapDepth(r, Math.min(y, r)))} мм`);
+      if (y > r) dev.push('⚠ Врезка шире трубы — уменьшите размер');
     } else dev.push('Торец ровный (на плоскую стенку)');
     return res(a, wt(a, p.t), dev);
   },
   build(p) {
-    const g = new THREE.Group(), s = shapeOf(p);
-    put(g, this.geom(p), { flat: isFlat(s) });
+    const g = new THREE.Group(), s = shapeOf(p), G = this.geom(p);
+    put(g, G.body, { flat: isFlat(s) });
+    if (G.lip) put(g, G.lip, { flat: true, color: VIEW.style === 'draw' ? 0xf4f6f9 : 0x8fa7bf });
     if (p.end === 'saddle') {
-      const r = p.Dm / 2, len = (s.t === 'round' ? s.d : s.b) + 200;
+      const r = p.Dm / 2, len = (s.t === 'round' ? s.d : s.a) + 200;
       const pipe = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 64, 1, true), mat(COL.steel, { transparent: true, opacity: 0.28, depthWrite: false }));
-      pipe.rotation.z = PI / 2; pipe.position.set(0, 0, -r); g.add(pipe);
+      pipe.rotation.z = PI / 2; pipe.position.set(0, 0, -r); g.add(pipe);   // ось трубы вдоль X
     }
     return g;
   },

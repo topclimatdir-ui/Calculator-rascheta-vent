@@ -121,7 +121,8 @@ ANN.flex = function (p) {
 ANN.tap = function (p) {
   const s = shapeOf(p), k = kk(hx(s) * 2, hy(s) * 2);
   const out = [...sec(s, p.Lb, k), lin(V(0, hy(s), 0), V(0, hy(s), p.Lb), V(0, k, 0), 'h=' + p.Lb)];
-  if (p.end === 'saddle') out.push(lab(V(0, -hy(s) - k * 0.6, -p.Dm / 2), 'Ø' + p.Dm));
+  if (p.ob > 0) out.push(lin(V(hx(s), 0, 0), V(hx(s) + p.ob, 0, 0), V(0, -k * 0.9, 0), 'отб. ' + p.ob));
+  if (p.end === 'saddle') out.push(lab(V(-hx(s) - k * 1.2, 0, -p.Dm / 2), 'труба Ø' + p.Dm));
   return out;
 };
 ANN.box = ANN.pipe = ANN.snv = ANN.nipple = ANN.duct; ANN.checkv = ANN.throttle;
