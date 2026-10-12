@@ -767,7 +767,7 @@ def({
       rings.push(profilePts(q, z));
     }
     put(g, ringsGeom(rings), { flat: isFlat(s), color: VIEW.style === 'draw' ? 0xeceff3 : 0x2d3138 });
-    if (p.shape === 'rect' && p.fg && p.fg !== 'none') { drawFlange(g, s, at(0, 0, -h, PI), p.fg, 'frame'); drawFlange(g, s, at(0, 0, h, 0), p.fg, 'frame'); }
+    if (p.shape === 'rect' && p.fg && p.fg !== 'none') { drawFlange(g, s, at(0, 0, -h, PI), p.fg); drawFlange(g, s, at(0, 0, h, 0), p.fg); }
     return g;
   },
 });

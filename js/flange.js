@@ -48,9 +48,8 @@ const FL_OPTS = [['none', 'Без фланца'], ['S20', 'Фланец S20 (ш�
 const flW = fg => (fg === 'S30' ? SET.sw30 : SET.sw20);
 
 const FL_T = 5;   // толщина фланца из шинорейки, мм
-function drawFlange(g, s, m, fg, mode) {
-  /* mode 'frame' — рама гибкой вставки (плоская рамка + полка вдоль ткани); иначе — четыре рейки шинорейки вокруг торца.
-     Плюс четыре уголка с отверстиями по углам */
+function drawFlange(g, s, m, fg) {
+  /* четыре рейки шинорейки вокруг торца (толщина FL_T) и четыре уголка с отверстиями по углам */
   const w = fg === 'S30' ? 30 : 20, grp = new THREE.Group(), draw = VIEW.style === 'draw';
   const railMat = () => mat(draw ? 0xeef1f5 : 0x8394a8), edge = () => new THREE.LineBasicMaterial({ color: draw ? 0x111111 : COL.edge });
   const box = (sx, sy, sz, x, y, z, material) => {
@@ -59,13 +58,8 @@ function drawFlange(g, s, m, fg, mode) {
     return mesh;
   };
   const a = s.a, b = s.b, zc = FL_T / 2, zt = FL_T;
-  if (mode === 'frame') {
-    const out = grow(s, w);
-    put(grp, loft(s, 0, out, 0), { flat: true }); put(grp, tube(out, -30, 0), { flat: true });
-  } else {
-    box(a + 2 * w, w, FL_T, 0, b / 2 + w / 2, zc, railMat()); box(a + 2 * w, w, FL_T, 0, -b / 2 - w / 2, zc, railMat());   // верхняя и нижняя рейки
-    box(w, b, FL_T, a / 2 + w / 2, 0, zc, railMat()); box(w, b, FL_T, -a / 2 - w / 2, 0, zc, railMat());                  // боковые рейки
-  }
+  box(a + 2 * w, w, FL_T, 0, b / 2 + w / 2, zc, railMat()); box(a + 2 * w, w, FL_T, 0, -b / 2 - w / 2, zc, railMat());   // верхняя и нижняя рейки
+  box(w, b, FL_T, a / 2 + w / 2, 0, zc, railMat()); box(w, b, FL_T, -a / 2 - w / 2, 0, zc, railMat());                  // боковые рейки
   const hr = fg === 'S30' ? 6 : 4.5, dark = new THREE.MeshBasicMaterial({ color: 0x1b222a, side: THREE.DoubleSide });
   [[1, 1], [-1, 1], [-1, -1], [1, -1]].forEach(([sx, sy]) => {
     const cx = sx * (a / 2 + w / 2), cy = sy * (b / 2 + w / 2);
