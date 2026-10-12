@@ -89,8 +89,8 @@ try {
   view.scene = makeScene();
   view.cam = new THREE.PerspectiveCamera(35, 1, 1, 1000);
   view.controls = new THREE.OrbitControls(view.cam, view.renderer.domElement);
-  view.controls.enableDamping = !view.soft; view.controls.autoRotate = !view.soft; view.controls.autoRotateSpeed = 2.2;
-  if (view.soft) { $('#rot').checked = false; $('#rot').disabled = true; $('.hint').textContent += ' · упрощённый режим 3D (без WebGL)'; }
+  view.controls.enableDamping = !view.soft; view.controls.autoRotate = true; view.controls.autoRotateSpeed = view.soft ? 3 : 2.2;
+  if (view.soft) $('.hint').textContent += ' · упрощённый режим 3D (без WebGL)';
 } catch (e) {
   view.renderer = null;
   view.el.innerHTML = '<p style="padding:16px;color:#b3261e">3D-картинка недоступна в этом окне. Расчёт и КП работают.</p>';
@@ -109,8 +109,15 @@ function resizeView() {
 }
 new ResizeObserver(resizeView).observe(view.el);
 if (view.renderer) {
-  if (view.soft) { view.controls.addEventListener('change', redraw); $('#dimsOn').addEventListener('change', redraw); }
-  else (function loop() { requestAnimationFrame(loop); view.controls.update(); redraw(); })();
+  if (view.soft) {   // перерисовываем только при изменении камеры (вращение мышью, кнопки, автовращение)
+    view.controls.addEventListener('change', redraw); $('#dimsOn').addEventListener('change', redraw);
+    (function loop() { requestAnimationFrame(loop); view.controls.update(); })();
+  } else (function loop() { requestAnimationFrame(loop); view.controls.update(); redraw(); })();
+  document.querySelectorAll('[data-rot]').forEach(b => b.addEventListener('click', () => {   // кнопки поворота на случай, если мышь недоступна
+    const d = { l: [-0.3, 0], r: [0.3, 0], u: [0, -0.25], d: [0, 0.25] }[b.dataset.rot], sp = new THREE.Spherical().setFromVector3(view.cam.position.clone().sub(view.controls.target));
+    sp.theta += d[0]; sp.phi = Math.min(Math.max(sp.phi + d[1], 0.05), PI - 0.05);
+    view.cam.position.copy(new THREE.Vector3().setFromSpherical(sp).add(view.controls.target)); view.cam.lookAt(view.controls.target); view.controls.update(); redraw();
+  }));
 }
 
 const thumb = { renderer: null };

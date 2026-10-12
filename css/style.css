@@ -103,3 +103,5 @@ h2 input[type=date], .kv input[type=date] { width: auto; border: 0; padding: 0; 
 @media screen { .btns button#sketchBtn { background: #fff; } }
 
 .fa { display: block; color: #6a7686; font-size: 10px; line-height: 1.2; }
+
+.rot .rb { display: flex; gap: 2px; } .rot .rb button { padding: 1px 6px; font-size: 11px; line-height: 1.4; }
