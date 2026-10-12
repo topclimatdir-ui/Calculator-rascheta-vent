@@ -31,7 +31,7 @@
     </div>
     <div class="viewbox">
       <div id="view"></div>
-      <label class="rot"><input type="checkbox" id="rot" checked> вращение</label>
+      <div class="rot"><select id="style"><option value="draw">Чертёж</option><option value="metal">Металл</option></select><label><input type="checkbox" id="dimsOn" checked> размеры</label><label><input type="checkbox" id="rot" checked> вращение</label></div>
       <p class="hint">Мышь: вращать — левая кнопка, масштаб — колесо</p>
     </div>
   </div>
@@ -101,6 +101,7 @@
 <script src="vendor/three.min.js"></script>
 <script src="vendor/OrbitControls.js"></script>
 <script src="js/types.js"></script>
+<script src="js/annot.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

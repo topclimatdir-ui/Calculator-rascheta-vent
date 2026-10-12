@@ -51,7 +51,7 @@ function frame(root, cam) {
   root.updateMatrixWorld(true);
   const b = new THREE.Box3().setFromObject(root), c = b.getCenter(new THREE.Vector3()), sph = b.getBoundingSphere(new THREE.Sphere());
   root.position.sub(c);
-  const dist = sph.radius / Math.sin(cam.fov * PI / 360) * 1.05;
+  const dist = sph.radius / Math.sin(cam.fov * PI / 360) * 1.3;
   cam.position.set(0.8, 0.6, 1).normalize().multiplyScalar(dist);
   cam.near = dist / 100; cam.far = dist * 20; cam.updateProjectionMatrix(); cam.lookAt(0, 0, 0);
   return dist;
@@ -59,38 +59,48 @@ function frame(root, cam) {
 function buildModel(type, p) {
   const m = type.build(p), root = new THREE.Group();
   if (type.up) m.rotation.x = -PI / 2;
-  root.add(m); return root;
+  root.add(m); root.userData.m = m; root.userData.dims = type.annot ? type.annot(p) : [];
+  return root;
 }
 
 const view = { el: $('#view') };
 view.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 view.renderer.setPixelRatio(Math.min(2, devicePixelRatio));
 view.el.appendChild(view.renderer.domElement);
+view.dim = document.createElement('canvas'); view.dim.className = 'dimcv'; view.el.appendChild(view.dim);
 view.scene = makeScene();
 view.cam = new THREE.PerspectiveCamera(35, 1, 1, 1000);
 view.controls = new THREE.OrbitControls(view.cam, view.renderer.domElement);
 view.controls.enableDamping = true; view.controls.autoRotate = true; view.controls.autoRotateSpeed = 2.2;
 function resizeView() {
   const w = view.el.clientWidth, h = view.el.clientHeight;
-  view.renderer.setSize(w, h); view.cam.aspect = w / h; view.cam.updateProjectionMatrix();
+  view.renderer.setSize(w, h); view.dim.width = w * 2; view.dim.height = h * 2; view.cam.aspect = w / h; view.cam.updateProjectionMatrix();
 }
 new ResizeObserver(resizeView).observe(view.el);
-(function loop() { requestAnimationFrame(loop); view.controls.update(); view.renderer.render(view.scene, view.cam); })();
+(function loop() {
+  requestAnimationFrame(loop); view.controls.update(); view.renderer.render(view.scene, view.cam);
+  const c = view.dim.getContext('2d'); c.setTransform(2, 0, 0, 2, 0, 0); c.clearRect(0, 0, view.dim.width, view.dim.height);
+  if (view.model && $('#dimsOn').checked) drawDims(c, view.cam, view.el.clientWidth, view.el.clientHeight, view.model.userData.m, view.model.userData.dims, 12);
+})();
 
 const thumb = { renderer: null };
 function snapshot(type, p) {
   if (!thumb.renderer) {
     thumb.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
-    thumb.renderer.setSize(300, 225); thumb.scene = makeScene(); thumb.cam = new THREE.PerspectiveCamera(35, 300 / 225, 1, 1000);
+    thumb.renderer.setSize(360, 270); thumb.scene = makeScene(); thumb.cam = new THREE.PerspectiveCamera(35, 360 / 270, 1, 1000);
+    thumb.cv = document.createElement('canvas'); thumb.cv.width = 360; thumb.cv.height = 270;
   }
   const root = buildModel(type, p); frame(root, thumb.cam); thumb.scene.add(root);
   thumb.renderer.render(thumb.scene, thumb.cam);
-  const url = thumb.renderer.domElement.toDataURL('image/png');
+  const c = thumb.cv.getContext('2d');
+  c.fillStyle = '#fff'; c.fillRect(0, 0, 360, 270); c.drawImage(thumb.renderer.domElement, 0, 0);
+  drawDims(c, thumb.cam, 360, 270, root.userData.m, root.userData.dims, 11);
   thumb.scene.remove(root);
-  return url;
+  return thumb.cv.toDataURL('image/png');
 }
 
 /* ---------- конструктор ---------- */
+VIEW.style = 'draw';
 const cur = { type: TYPES[0], p: defaultsOf(TYPES[0]), editId: null };
 let timer;
 
@@ -147,6 +157,7 @@ $('#fields').addEventListener('input', e => {
   if (f && f.sel) { renderForm(); }
   update();
 });
+$('#style').addEventListener('change', e => { VIEW.style = e.target.value; rebuild(); });
 $('#rot').addEventListener('change', e => { view.controls.autoRotate = e.target.checked; });
 
 $('#add').addEventListener('click', () => {

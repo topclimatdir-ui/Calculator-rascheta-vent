@@ -74,19 +74,26 @@ function geomArea(g) {
   return s;   // мм²
 }
 
-function sweepRings(sh, R, alpha, M) {   // колено: ось начинается вдоль +Z, изгиб в сторону +X
-  const base = profilePts(sh, 0), rings = [];
-  for (let m = 0; m <= M; m++) {
-    const f = alpha * m / M, cx = R * (1 - Math.cos(f)), cz = R * Math.sin(f);
-    rings.push(base.map(v => new THREE.Vector3(cx + v.x * Math.cos(f), v.y, cz - v.x * Math.sin(f))));
+function sweepRingsAt(sh, R, angs, e = 0) {   // колено: ось начинается вдоль +Z, изгиб в сторону +X
+  const base = profilePts(sh, 0), rings = angs.map(f => {
+    const cx = R * (1 - Math.cos(f)), cz = R * Math.sin(f);
+    return base.map(v => new THREE.Vector3(cx + v.x * Math.cos(f), v.y, cz - v.x * Math.sin(f)));
+  });
+  if (e > 0) {
+    const f = angs[angs.length - 1], t = new THREE.Vector3(Math.sin(f), 0, Math.cos(f)).multiplyScalar(e);
+    rings.unshift(base.map(v => v.clone().add(new THREE.Vector3(0, 0, -e))));
+    rings.push(rings[rings.length - 1].map(v => v.clone().add(t)));
   }
   return rings;
 }
 
 /* ---------- материалы и сборка ---------- */
+const VIEW = { style: 'draw' };   // 'draw' — чертёж, 'metal' — металл
 const COL = { steel: 0x9db3c8, dark: 0x4a5668, wool: 0xe0b84a, edge: 0x1f3345, mesh: 0x2d3b4a };
 function mat(color, opts = {}) {
-  return new THREE.MeshStandardMaterial(Object.assign({ color, metalness: 0.35, roughness: 0.45, side: THREE.DoubleSide }, opts));
+  const draw = VIEW.style === 'draw';
+  if (draw && color === COL.steel) color = 0xf4f6f9;
+  return new THREE.MeshStandardMaterial(Object.assign({ color, metalness: draw ? 0 : 0.35, roughness: draw ? 1 : 0.45, side: THREE.DoubleSide }, opts));
 }
 function put(grp, geom, o = {}) {
   const flat = o.flat !== undefined ? o.flat : false;
@@ -94,7 +101,7 @@ function put(grp, geom, o = {}) {
   const m = new THREE.Mesh(geom, mat(o.color || COL.steel, { flatShading: flat, transparent: opacity < 1, opacity, depthWrite: opacity >= 1 }));
   grp.add(m);
   if (o.edges !== false && opacity >= 0.9) {
-    const e = new THREE.LineSegments(new THREE.EdgesGeometry(geom, 30), new THREE.LineBasicMaterial({ color: COL.edge }));
+    const e = new THREE.LineSegments(new THREE.EdgesGeometry(geom, 30), new THREE.LineBasicMaterial({ color: VIEW.style === 'draw' ? 0x111111 : COL.edge }));
     grp.add(e);
   }
   return m;
@@ -160,22 +167,41 @@ def({
 });
 
 /* 2. Отвод / колено */
+const elbowAngs = p => {
+  const al = p.ang * PI / 180;
+  if (p.bt === 'seg' && p.shape === 'round') {
+    const k = Math.max(2, Math.round(p.seg)) - 1, a = [0];
+    for (let i = 1; i <= k; i++) a.push((2 * i - 1) * al / (2 * k));
+    a.push(al); return a;
+  }
+  const M = Math.max(8, Math.ceil(p.ang / 5)); return Array.from({ length: M + 1 }, (_, i) => al * i / M);
+};
 def({
   id: 'elbow', name: 'Отвод / колено',
   fields: [selF('shape', 'Сечение', SH, 'round'), ...dims('', '', 'shape', 315, 500, 300),
-    numF('ang', 'Угол отвода, °', 90, 5), numF('rr', 'Радиус по оси, × D (или × A)', 1, 0.6)],
-  label: p => `Отвод ${p.ang}° ${p.shape === 'round' ? 'круглый' : 'прямоугольный'} ${dimStr(shapeOf(p))}`,
+    numF('ang', 'Угол отвода α, °', 90, 5), numF('rr', 'Радиус по оси, × D (или × A)', 1.5, 0.6),
+    numF('ends', 'Прямые участки по краям, мм', 50, 0),
+    { k: 'bt', l: 'Тип (круглый)', sel: [['smooth', 'Плавный'], ['seg', 'Сегментный']], v: 'seg', show: p => p.shape === 'round' },
+    numF('seg', 'Секций (сегментный)', 3, 2, p => p.shape === 'round' && p.bt === 'seg')],
+  label: p => `Отвод ${p.ang}° ${p.shape === 'round' ? (p.bt === 'seg' ? 'круглый сегментный' : 'круглый') : 'прямоугольный'} ${dimStr(shapeOf(p))}`,
   calc(p) {
     const s = shapeOf(p), al = p.ang * PI / 180, dim = s.t === 'round' ? s.d : s.a, R = p.rr * dim;
-    const a = m2(s.t === 'round' ? PI * s.d * R * al : 2 * al * R * (s.a + s.b));
+    const a = m2((s.t === 'round' ? PI * s.d * R * al : 2 * al * R * (s.a + s.b)) + 2 * p.ends * perim(s));
     const dev = [`Радиус по оси R=${n1(R)} мм, длина дуги по оси ${n1(R * al)} мм`,
       `Внутренний радиус ${n1(R - dim / 2)} мм, наружный ${n1(R + dim / 2)} мм`];
+    if (p.ends > 0) dev.push(`Прямые участки: 2 × ${p.ends} мм`);
     if (R <= dim / 2) dev.push('⚠ Радиус слишком мал — увеличьте');
     return res(a, wt(a, p.t), dev);
   },
   build(p) {
-    const g = new THREE.Group(), s = shapeOf(p), al = p.ang * PI / 180, dim = s.t === 'round' ? s.d : s.a;
-    put(g, ringsGeom(sweepRings(s, p.rr * dim, al, Math.max(8, Math.ceil(p.ang / 5)))), { flat: isFlat(s) });
+    const g = new THREE.Group(), s = shapeOf(p), dim = s.t === 'round' ? s.d : s.a, angs = elbowAngs(p);
+    const rings = sweepRingsAt(s, p.rr * dim, angs, p.ends);
+    put(g, ringsGeom(rings), { flat: isFlat(s) });
+    if (p.bt === 'seg' && s.t === 'round') {
+      const o = p.ends > 0 ? 1 : 0;
+      for (let i = 1 + o; i < angs.length - 1 + o; i++)
+        g.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(rings[i]), new THREE.LineBasicMaterial({ color: VIEW.style === 'draw' ? 0x111111 : COL.edge })));
+    }
     return g;
   },
 });
@@ -205,13 +231,14 @@ def({
 def({
   id: 'tee', name: 'Тройник / врезка / крестовина',
   fields: [selF('kind', 'Вид', [['tee', 'Тройник'], ['cross', 'Крестовина'], ['saddle', 'Врезка (седло)']], 'tee'),
-    selF('shape', 'Сечение', SH, 'round'),
-    ...dims('1', 'магистрали', 'shape', 315, 500, 300), numF('L', 'Длина магистрали L, мм', 600),
-    ...dims('2', 'ответвления', 'shape', 200, 300, 200), numF('Lb', 'Длина ответвления от стенки, мм', 300),
+    selF('s1', 'Сечение магистрали', SH, 'round'),
+    ...dims('1', 'магистрали', 's1', 315, 500, 300), numF('L', 'Длина магистрали L, мм', 600),
+    selF('s2', 'Сечение ответвления', SH, 'round'),
+    ...dims('2', 'ответвления', 's2', 200, 300, 200), numF('Lb', 'Длина ответвления от стенки, мм', 300),
     numF('ang', 'Угол ответвления, °', 90, 20)],
-  label: p => `${{ tee: 'Тройник', cross: 'Крестовина', saddle: 'Врезка' }[p.kind]} ${p.shape === 'round' ? 'круглый' : 'прямоуг.'} ${dimStr(shapeOf(p, '1'))}/${dimStr(shapeOf(p, '2'))}, ${p.ang}°`,
+  label: p => `${{ tee: 'Тройник', cross: 'Крестовина', saddle: 'Врезка' }[p.kind]} ${''} ${dimStr(shapeOf(p, '1', 's1'))} / ответвление ${dimStr(shapeOf(p, '2', 's2'))}, ${p.ang}°`,
   calc(p) {
-    const s1 = shapeOf(p, '1'), s2 = shapeOf(p, '2'), sin = Math.sin(p.ang * PI / 180), n = p.kind === 'cross' ? 2 : 1;
+    const s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'), sin = Math.sin(p.ang * PI / 180), n = p.kind === 'cross' ? 2 : 1;
     let a, dev;
     if (p.kind === 'saddle') {
       a = m2(perim(s2) * p.Lb);
@@ -225,7 +252,7 @@ def({
     return res(a, wt(a, p.t), dev);
   },
   build(p) {
-    const g = new THREE.Group(), s1 = shapeOf(p, '1'), s2 = shapeOf(p, '2'), al = p.ang * PI / 180, sin = Math.sin(al);
+    const g = new THREE.Group(), s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'), al = p.ang * PI / 180, sin = Math.sin(al);
     const ghost = p.kind === 'saddle';
     put(g, tube(s1, -p.L / 2, p.L / 2), { flat: isFlat(s1), opacity: ghost ? 0.22 : 1, edges: !ghost });
     const half = (s1.t === 'round' ? s1.d : s1.a) / 2, len = p.Lb + half / sin;
@@ -432,7 +459,7 @@ def({
       const x = -p.A / 2 + gap * (i + 1) + p.ph * (i + 0.5);
       const m = new THREE.Mesh(new THREE.BoxGeometry(p.ph, p.B - 4, p.L), mat(COL.wool, { roughness: 0.9, metalness: 0 }));
       m.position.x = x; g.add(m);
-      g.add(new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry), new THREE.LineBasicMaterial({ color: COL.edge })).translateX(x));
+      g.add(new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry), new THREE.LineBasicMaterial({ color: VIEW.style === 'draw' ? 0x111111 : COL.edge })).translateX(x));
     }
     put(g, tube(s, -h - 40, -h), { flat: true }); put(g, tube(s, h, h + 40), { flat: true });
     return g;
