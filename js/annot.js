@@ -40,7 +40,12 @@ const ANN = {
   transition(p) {
     const s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'), k = kk(hx(s1) * 2, hx(s2) * 2, p.L * 0.6), o = offs(p), m = Math.max(hx(s1), hx(s2) + Math.abs(o.ox));
     const out = [...sec(s1, 0, k), ...sec(s2, p.L, k, o.ox, o.oy), lin(V(m, 0, 0), V(m, 0, p.L), V(k, 0, 0), 'L=' + p.L)];
-    nipsOf(p).forEach(n => out.push(lin(V(n.ox, n.oy + hy(n.s), n.z0), V(n.ox, n.oy + hy(n.s), n.z1), V(0, k, 0), String(n.len))));
+    const nl = nipsOf(p);
+    if (nl.length) {
+      const zs = [0, p.L, ...nl.flatMap(n => [n.z0, n.z1])], z0 = Math.min(...zs), z1 = Math.max(...zs), ym = Math.max(hy(s1), hy(s2) + Math.abs(o.oy));
+      out.push(lin(V(0, ym, z0), V(0, ym, z1), V(0, k * 1.1, 0), 'Lобщ=' + (z1 - z0)));
+    }
+    nl.forEach(n => out.push(lin(V(n.ox, n.oy + hy(n.s), n.z0), V(n.ox, n.oy + hy(n.s), n.z1), V(0, k, 0), String(n.len))));
     return out;
   },
   tee(p) {

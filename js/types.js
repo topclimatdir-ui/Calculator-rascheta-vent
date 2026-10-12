@@ -276,6 +276,7 @@ const offs = p => {   // смещение оси выхода: одностор�
   const hx = s => (s.t === 'round' ? s.d : s.a) / 2, hy = s => (s.t === 'round' ? s.d : s.b) / 2;
   return { ox: p.tp === 'x' ? hx(s1) - hx(s2) : 0, oy: p.tp === 'y' ? hy(s1) - hy(s2) : 0 };
 };
+const transTotal = p => p.L + nipsOf(p).reduce((t, n) => t + n.len, 0);
 const nipsOf = p => {   // прямые участки на концах: круглая гильза (nip) и прямоугольный под фланец (fl)
   const s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'), o = offs(p), out = [];
   const len = s => (s.t === 'round' ? p.nip : p.fl) || 0;
@@ -290,12 +291,13 @@ def({
     numF('L', 'Длина L, мм', 400), selF('tp', 'Тип перехода', [['c', 'Центральный'], ['x', 'Односторонний (по ширине)'], ['y', 'Односторонний (по высоте)']], 'c'),
     { k: 'nip', l: 'Круглая врезка (гильза), мм', v: 80, min: 0, show: p => p.s1 === 'round' || p.s2 === 'round' },
     { k: 'fl', l: 'Прямой участок под фланец, мм', v: 30, min: 0, show: p => p.s1 === 'rect' || p.s2 === 'rect' }],
-  label: p => `Переход ${dimStr(shapeOf(p, '1', 's1'))} → ${dimStr(shapeOf(p, '2', 's2'))}, L=${p.L}` + (p.tp === 'c' || !p.tp ? ', центральный' : ', односторонний') + (p.s1 === 'round' || p.s2 === 'round' ? (p.nip > 0 ? `, врезка ${p.nip}` : '') : '') + (p.s1 === 'rect' || p.s2 === 'rect' ? (p.fl > 0 ? `, фланец-участок ${p.fl}` : '') : ''),
+  label: p => `Переход ${dimStr(shapeOf(p, '1', 's1'))} → ${dimStr(shapeOf(p, '2', 's2'))}, L=${p.L}` + (nipsOf(p).length ? `, Lобщ=${transTotal(p)}` : '') + (p.tp === 'c' || !p.tp ? ', центральный' : ', односторонний') + (p.s1 === 'round' || p.s2 === 'round' ? (p.nip > 0 ? `, врезка ${p.nip}` : '') : '') + (p.s1 === 'rect' || p.s2 === 'rect' ? (p.fl > 0 ? `, фланец-участок ${p.fl}` : '') : ''),
   geom(p) { const s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'); const o = offs(p); return loft(s1, 0, s2, p.L, o.ox, o.oy); },
   calc(p) {
     const s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'), nips = nipsOf(p);
     const a = m2(geomArea(this.geom(p)) + nips.reduce((t, n) => t + perim(n.s) * n.len, 0));
     const dev = [`Периметры: вход ${n1(perim(s1))} мм, выход ${n1(perim(s2))} мм`];
+    if (nips.length) dev.push(`Длина: переход ${p.L} мм + прямые участки ${nips.map(n => n.len).join(' + ')} мм = общая ${transTotal(p)} мм`);
     if (s1.t === 'round' && s2.t === 'round' && (p.tp === 'c' || !p.tp)) dev.push(conicDev(s1.d, s2.d, p.L));
     else dev.push('Площадь — по 3D-модели; развёртка — по лекалу');
     nips.forEach(n => dev.push(n.s.t === 'round' ? `Круглая врезка Ø${n1(n.s.d)} × ${n.len} мм: заготовка ${n1(perim(n.s))} × ${n.len} мм` : `Прямой участок под фланец ${n.s.a}×${n.s.b} × ${n.len} мм: заготовка ${n1(perim(n.s))} × ${n.len} мм`));
