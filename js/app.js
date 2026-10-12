@@ -108,7 +108,7 @@ const cur = { type: TYPES.find(t => t.id === 'pipe'), p: defaultsOf(TYPES.find(t
 let timer;
 
 const GROUPS = [
-  { title: 'Круглое сечение', items: [['pipe'], ['snv'], ['elbow', { shape: 'round' }, 'Отвод'], ['transition', { s1: 'round', s2: 'round' }, 'Переход'],
+  { title: 'Круглое сечение', items: [['pipe'], ['snv'], ['nipple'], ['elbow', { shape: 'round' }, 'Отвод'], ['transition', { s1: 'round', s2: 'round' }, 'Переход'],
     ['tee', { s1: 'round', s2: 'round' }, 'Тройник / врезка / крестовина'], ['throttle', { shape: 'round' }], ['cap', { shape: 'round', h: 80 }], ['mesh', { shape: 'round', fw: 80 }],
     ['clamp'], ['mushroom'], ['tsagi'], ['exhaust45'], ['nozzle'], ['silround'], ['flex', { shape: 'round' }, 'Гибкая вставка'], ['filterbox', { cs: 'round' }, 'Фильтр-бокс (круглое присоединение)']] },
   { title: 'Прямоугольное сечение', items: [['box'], ['elbow', { shape: 'rect' }, 'Отвод'], ['transition', { s1: 'rect', s2: 'rect' }, 'Переход'],

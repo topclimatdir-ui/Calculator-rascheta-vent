@@ -3,7 +3,7 @@
 'use strict';
 
 const PI = Math.PI;
-const SET = { density: 7850, meshW: 1.0, woolD: 80, t: 0.7, zig: 50 };   // обновляется из app.js
+const SET = { density: 7850, meshW: 1.0, woolD: 80, t: 0.5, zig: 50 };   // обновляется из app.js
 
 /* ---------- сечения ---------- */
 const shapeOf = (p, sfx = '', key = 'shape') =>
@@ -202,6 +202,22 @@ def({
     const g = ductBuild(p), r = p.D / 2 + 0.6, pitch = Math.max(40, p.D * 0.35), turns = p.L / pitch, n = Math.ceil(turns * 48), pts = [];
     for (let i = 0; i <= n; i++) { const u = i / n, a = 2 * PI * turns * u; pts.push(new THREE.Vector3(r * Math.cos(a), r * Math.sin(a), -p.L / 2 + p.L * u)); }
     g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: VIEW.style === 'draw' ? 0x111111 : 0x5b6c80 })));
+    return g;
+  },
+});
+
+/* 1б. Ниппель */
+def({
+  id: 'nipple', name: 'Ниппель', fixed: { shape: 'round' },
+  fields: [numF('D', 'Диаметр D, мм', 315, 20), numF('L', 'Длина L, мм', 120)],
+  label: p => `Ниппель Ø${p.D}, L=${p.L}`,
+  calc(p) {
+    const a = m2(PI * p.D * p.L);
+    return res(a, wt(a, p.t), [`Заготовка: ${n1(PI * p.D)} × ${p.L} мм`, 'Ограничительный зиг по середине']);
+  },
+  build(p) {
+    const g = new THREE.Group(), s = { t: 'round', d: p.D };
+    put(g, tube(s, -p.L / 2, p.L / 2)); const k = SET.zig; SET.zig = 1; zig(g, p.D / 2, 0); SET.zig = k;
     return g;
   },
 });
@@ -461,7 +477,7 @@ def({
 
 /* 11. Сетка защитная */
 def({
-  id: 'mesh', name: 'Сетка защитная', t0: 0.7,
+  id: 'mesh', name: 'Сетка защитная',
   fields: [selF('shape', 'Сечение', SH, 'round'), ...dims('', '', 'shape', 315, 500, 300), numF('fw', 'Ширина рамки / гильзы, мм', 20)],
   label: p => `Сетка защитная ${p.shape === 'round' ? 'круглая' : 'прямоугольная'} ${dimStr(shapeOf(p))}`,
   calc(p) {

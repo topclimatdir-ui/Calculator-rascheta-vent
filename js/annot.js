@@ -113,7 +113,7 @@ ANN.flex = function (p) {
   if (p.fl === 'S20') out.push(lab(V(hx(s) + 60, hy(s) + 20, -h - 10), 'S20'));
   return out;
 };
-ANN.box = ANN.pipe = ANN.snv = ANN.duct;
+ANN.box = ANN.pipe = ANN.snv = ANN.nipple = ANN.duct;
 TYPES.forEach(t => { t.annot = ANN[t.id]; });
 
 /* рисование размеров на 2D-холсте поверх 3D-картинки */
