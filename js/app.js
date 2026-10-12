@@ -354,6 +354,19 @@ $('#logoFile').addEventListener('change', e => {
 });
 $('#logoReset').addEventListener('click', () => { state.logo = null; save(); showLogo(); });
 $('#print').addEventListener('click', () => window.print());
+$('#saveProj').addEventListener('click', () => {   // резервная копия: КП, позиции и настройки одним файлом
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({ app: 'ventfactory-kp', v: 1, state: { set: state.set, doc: state.doc, items: state.items, logo: state.logo, sections: state.sections } })], { type: 'application/json' }));
+  a.download = 'KP-' + (state.doc.kpno || 'ventfactory') + '-' + new Date().toISOString().slice(0, 10) + '.json'; a.click();
+});
+$('#openProj').addEventListener('click', () => $('#projFile').click());
+$('#projFile').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  f.text().then(t => {
+    const j = JSON.parse(t); if (!j || j.app !== 'ventfactory-kp' || !j.state) throw new Error('Это не файл калькулятора');
+    try { localStorage.setItem(LS, JSON.stringify(j.state)); } catch (er) { }
+    location.reload();
+  }).catch(er => alert('Не удалось открыть файл: ' + er.message));
+});
 $('#clear').addEventListener('click', () => { if (confirm('Удалить все позиции из КП?')) { state.items = []; save(); renderKP(); } });
 $('#csv').addEventListener('click', () => {
   const T = TXT[state.set.lang], rows = state._rows || [], q = v => '"' + String(v).replace(/"/g, '""') + '"', f = v => String(v).replace('.', ',');
