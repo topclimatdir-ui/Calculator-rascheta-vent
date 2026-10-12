@@ -3,7 +3,7 @@
 'use strict';
 
 const PI = Math.PI;
-const SET = { density: 7850, meshW: 1.0, woolD: 80, t: 0.5, zig: 50, sw20: 88, sw30: 108, stripT: 0.5, cornerP: 0 };   // обновляется из app.js
+const SET = { density: 7850, meshW: 1.0, woolD: 80, t: 0.5, zig: 50, zigH: 5, sw20: 88, sw30: 108, stripT: 0.5, cornerP: 0 };   // обновляется из app.js
 
 /* ---------- сечения ---------- */
 const shapeOf = (p, sfx = '', key = 'shape') =>
@@ -142,7 +142,7 @@ function conicDev(D1, D2, L) {
 /* зиг (ребро жёсткости) по окружности на круглых деталях, SET.zig мм от края */
 function zig(g, r, z, ox = 0, oy = 0) {
   if (!(SET.zig > 0)) return;
-  const m = new THREE.Mesh(new THREE.TorusGeometry(r + 1.5, 4, 8, 96), mat(VIEW.style === "draw" ? 0xe3e8ee : 0x7a94ae));
+  const m = new THREE.Mesh(new THREE.TorusGeometry(r + SET.zigH * 0.3, SET.zigH * 0.6, 8, 96), mat(VIEW.style === "draw" ? 0xe3e8ee : 0x7a94ae));
   m.position.set(ox, oy, z); g.add(m);
 }
 function zigs(g, sh, z0, z1, ox = 0, oy = 0) {   // зиги на расстоянии SET.zig от обоих краёв участка
@@ -183,32 +183,40 @@ const ductCalc = function (p) {
   return res(a, wt(a, p.t), [`Заготовка: ${n1(P)} × ${n1(p.L)} мм (${s.t === 'round' ? 'π·D' : '2·(A+B)'} × L)`]);
 };
 const ductBuild = function (p) { const g = new THREE.Group(), s = shapeOf(p); put(g, tube(s, -p.L / 2, p.L / 2), { flat: isFlat(s) }); zigs(g, s, -p.L / 2, p.L / 2); return g; };
-/* ребра жёсткости (диагональные зиги) на широких сторонах короба */
-function addRibs(g, p) {
-  const col = VIEW.style === 'draw' ? 0x111111 : 0x5f7893, m = 40, big = p.rib === 'diag';
-  if (!big) return;
-  const face = (w, y, x, nz, ny) => {   // w — ширина грани, ось грани вдоль z; (x,y) — положение центра грани, ny/nx — наружная нормаль
-    const n = Math.max(1, Math.round(p.L / w)), pl = p.L / n;
-    for (let i = 0; i < n; i++) {
-      const z0 = -p.L / 2 + pl * i + m, z1 = -p.L / 2 + pl * (i + 1) - m, h = w / 2 - m;
-      [[-h, z0, h, z1], [-h, z1, h, z0]].forEach(([u0, za, u1, zb]) => {
-        const P = (u, z) => (nz === 'y' ? V(u, y + ny * 1.5, z) : V(x + ny * 1.5, u, z));
-        g.add(rod(P(u0, za), P(u1, zb), 2.2, col));
-      });
-    }
-  };
-  if (p.A >= p.ribMin) { face(p.A, p.B / 2, 0, 'y', 1); face(p.A, -p.B / 2, 0, 'y', -1); }
-  if (p.B >= p.ribMin) { face(p.B, 0, p.A / 2, 'x', 1); face(p.B, 0, -p.A / 2, 'x', -1); }
+/* ребра жёсткости на широких сторонах короба: ёлочка, зедка, диагональные зиги */
+function ribSegments(type, w, L, step) {   // сегменты [u0, z0, u1, z1] на грани шириной w, длиной L
+  const m = 50, h = w / 2 - m, out = [];
+  if (type === 'diag') {
+    const n = Math.max(1, Math.round(L / w)), pl = L / n;
+    for (let i = 0; i < n; i++) { const za = -L / 2 + pl * i + m, zb = -L / 2 + pl * (i + 1) - m; out.push([-h, za, h, zb], [-h, zb, h, za]); }
+  } else if (type === 'yolka') {   // «ёлочка»: шевроны через каждые step мм, первый — на расстоянии step от края
+    for (let z = -L / 2 + step; z <= L / 2 - step + 0.1; z += step) out.push([-h, z - h * 0.5, 0, z], [0, z, h, z - h * 0.5]);
+  } else if (type === 'zedka') {   // «зедка»: две поперечные планки на расстоянии step, соединённые косой
+    for (let z = -L / 2 + step; z + step <= L / 2 - step + 0.1; z += 3 * step) out.push([-h, z, h, z], [h, z, -h, z + step], [-h, z + step, h, z + step]);
+  }
+  return out;
 }
+function addRibs(g, p) {
+  if (!p.rib || p.rib === 'none') return;
+  const col = VIEW.style === 'draw' ? 0x111111 : 0x5f7893, rr = SET.zigH * 0.45;
+  const face = (w, c, axis, sg) => ribSegments(p.rib, w, p.L, p.ribStep || 150).forEach(([u0, z0, u1, z1]) => {
+    const P = (u, z) => (axis === 'y' ? V(u, c + sg * rr * 0.6, z) : V(c + sg * rr * 0.6, u, z));
+    g.add(rod(P(u0, z0), P(u1, z1), rr, col));
+  });
+  if (p.A >= p.ribMin) { face(p.A, p.B / 2, 'y', 1); face(p.A, -p.B / 2, 'y', -1); }
+  if (p.B >= p.ribMin) { face(p.B, p.A / 2, 'x', 1); face(p.B, -p.A / 2, 'x', -1); }
+}
+const RIB_NAMES = { yolka: 'ёлочка', zedka: 'зедка', diag: 'диагональные зиги (X)' };
 def({
   id: 'box', name: 'Короб прямоугольный', fixed: { shape: 'rect' },
   fields: [numF('A', 'Ширина A, мм', 500, 20), numF('B', 'Высота B, мм', 300, 20), numF('L', 'Длина L, мм', 1250),
-    selF('rib', 'Рёбра жёсткости', [['none', 'Нет'], ['diag', 'Диагональные зиги (X)']], 'none'),
-    numF('ribMin', 'Рёбра на сторонах от, мм', 400, 100, p => p.rib === 'diag')],
-  label: p => `Короб прямоугольный ${p.A}×${p.B}, L=${p.L}` + (p.rib === 'diag' ? ', рёбра жёсткости' : ''),
+    selF('rib', 'Рёбра жёсткости (зиги)', [['none', 'Нет'], ['yolka', 'Ёлочка'], ['zedka', 'Зедка'], ['diag', 'Диагональные (X)']], 'none'),
+    numF('ribMin', 'Рёбра на сторонах от, мм', 400, 100, p => p.rib !== 'none'),
+    numF('ribStep', 'Шаг зигов, мм', 150, 50, p => p.rib === 'yolka' || p.rib === 'zedka')],
+  label: p => `Короб прямоугольный ${p.A}×${p.B}, L=${p.L}` + (p.rib && p.rib !== 'none' ? ', рёбра: ' + RIB_NAMES[p.rib] : ''),
   calc(p) {
     const r = ductCalc.call(this, p);
-    if (p.rib === 'diag') r.dev.push(`Рёбра жёсткости: диагональные зиги на сторонах от ${p.ribMin} мм (${(p.A >= p.ribMin ? 2 : 0) + (p.B >= p.ribMin ? 2 : 0)} грани)`);
+    if (p.rib && p.rib !== 'none') r.dev.push(`Зиги «${RIB_NAMES[p.rib]}», высота ${SET.zigH} мм${p.rib !== 'diag' ? ', шаг ' + p.ribStep + ' мм' : ''}, на сторонах от ${p.ribMin} мм (${(p.A >= p.ribMin ? 2 : 0) + (p.B >= p.ribMin ? 2 : 0)} грани)`);
     return r;
   },
   build(p) { const g = ductBuild(p); addRibs(g, p); return g; },

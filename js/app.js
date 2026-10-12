@@ -31,12 +31,12 @@ const DOC0 = {
   comments: '', boss: 'Директор ТОВ «ВЕНТ ФЕКТОРІ»', bossName: '[ПІБ]',
   foot1: 'ТОВ «ВЕНТ ФЕКТОРІ» · Повітроводи та вентиляційні системи', foot2: '+38 067 8866 255 · ventfactory.kr@gmail.com',
 };
-const SET0 = { sw20: 88, sw30: 108, stripT: 0.5, cornerP: 0, zig: 50, snv: {}, lang: 'uk', disc: 10, vat: 20, rate: { '0.5': 650, '0.7': 850, '1': 1200 }, density: 7850, meshW: 1, woolD: 80 };
+const SET0 = { zigH: 5, sw20: 88, sw30: 108, stripT: 0.5, cornerP: 0, zig: 50, snv: {}, lang: 'uk', disc: 10, vat: 20, rate: { '0.5': 650, '0.7': 850, '1': 1200 }, density: 7850, meshW: 1, woolD: 80 };
 
 let state = { set: structuredClone(SET0), doc: structuredClone(DOC0), items: [], logo: null, sections: ['Повітроводи та фасонні вироби'] };
 try { const s = JSON.parse(localStorage.getItem(LS)); if (s) { Object.assign(state, s); state.set = Object.assign(structuredClone(SET0), s.set); state.doc = Object.assign(structuredClone(DOC0), s.doc); } } catch (e) { }
 const save = () => { try { localStorage.setItem(LS, JSON.stringify(state)); } catch (e) { } };
-const syncSet = () => { SET.density = +state.set.density; SET.meshW = +state.set.meshW; SET.woolD = +state.set.woolD; SET.zig = +state.set.zig; SET.sw20 = +state.set.sw20; SET.sw30 = +state.set.sw30; SET.stripT = +state.set.stripT; SET.cornerP = +state.set.cornerP; };
+const syncSet = () => { SET.density = +state.set.density; SET.meshW = +state.set.meshW; SET.woolD = +state.set.woolD; SET.zig = +state.set.zig; SET.zigH = +state.set.zigH || 5; SET.sw20 = +state.set.sw20; SET.sw30 = +state.set.sw30; SET.stripT = +state.set.stripT; SET.cornerP = +state.set.cornerP; };
 syncSet();
 
 /* ---------- 3D-просмотр ---------- */
