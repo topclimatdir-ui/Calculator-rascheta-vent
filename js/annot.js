@@ -113,9 +113,9 @@ ANN.filterbox = function (p) {
 ANN.cassette = p => { const k = kk(p.A, p.B); return [lin(V(-p.A / 2, -p.B / 2, p.th / 2), V(p.A / 2, -p.B / 2, p.th / 2), V(0, -k, 0), 'A=' + p.A), lin(V(p.A / 2, -p.B / 2, p.th / 2), V(p.A / 2, p.B / 2, p.th / 2), V(k, 0, 0), 'B=' + p.B), lin(V(p.A / 2, p.B / 2, -p.th / 2), V(p.A / 2, p.B / 2, p.th / 2), V(0, k, 0), String(p.th))]; };
 ANN.pocketf = p => { const k = kk(p.A, p.B); return [lin(V(-p.A / 2, -p.B / 2, 12), V(p.A / 2, -p.B / 2, 12), V(0, -k, 0), 'A=' + p.A), lin(V(p.A / 2, -p.B / 2, 12), V(p.A / 2, p.B / 2, 12), V(k, 0, 0), 'B=' + p.B), lin(V(p.A / 2, p.B / 2, 12), V(p.A / 2, p.B / 2, 12 + p.pk), V(0, k, 0), 'L=' + p.pk)]; };
 ANN.flex = function (p) {
-  const s = shapeOf(p), k = kk(hx(s) * 2, hy(s) * 2), h = p.L / 2, z = p.fl === 'S20' ? h + 20 : h;
-  const out = [...sec(s, z, k), lin(V(0, hy(s) + (p.fl === 'S20' ? 20 : 0), -h), V(0, hy(s) + (p.fl === 'S20' ? 20 : 0), h), V(0, k, 0), 'L=' + p.L)];
-  if (p.fl === 'S20') out.push(lab(V(hx(s) + 60, hy(s) + 20, -h - 10), 'S20'));
+  const s = shapeOf(p), k = kk(hx(s) * 2, hy(s) * 2), h = p.L / 2, fo = p.shape === 'rect' && p.fg && p.fg !== 'none' ? (p.fg === 'S30' ? 30 : 20) : 0, z = h + fo;
+  const out = [...sec(s, z, k), lin(V(0, hy(s) + fo, -h), V(0, hy(s) + fo, h), V(0, k, 0), 'L=' + p.L)];
+  if (fo) out.push(lab(V(hx(s) + 60, hy(s) + fo, -h - 10), p.fg));
   return out;
 };
 ANN.box = ANN.pipe = ANN.snv = ANN.nipple = ANN.duct;

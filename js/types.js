@@ -3,7 +3,7 @@
 'use strict';
 
 const PI = Math.PI;
-const SET = { density: 7850, meshW: 1.0, woolD: 80, t: 0.5, zig: 50 };   // обновляется из app.js
+const SET = { density: 7850, meshW: 1.0, woolD: 80, t: 0.5, zig: 50, sw20: 88, sw30: 108, stripT: 0.5, cornerP: 0 };   // обновляется из app.js
 
 /* ---------- сечения ---------- */
 const shapeOf = (p, sfx = '', key = 'shape') =>
@@ -183,10 +183,35 @@ const ductCalc = function (p) {
   return res(a, wt(a, p.t), [`Заготовка: ${n1(P)} × ${n1(p.L)} мм (${s.t === 'round' ? 'π·D' : '2·(A+B)'} × L)`]);
 };
 const ductBuild = function (p) { const g = new THREE.Group(), s = shapeOf(p); put(g, tube(s, -p.L / 2, p.L / 2), { flat: isFlat(s) }); zigs(g, s, -p.L / 2, p.L / 2); return g; };
+/* ребра жёсткости (диагональные зиги) на широких сторонах короба */
+function addRibs(g, p) {
+  const col = VIEW.style === 'draw' ? 0x111111 : 0x5f7893, m = 40, big = p.rib === 'diag';
+  if (!big) return;
+  const face = (w, y, x, nz, ny) => {   // w — ширина грани, ось грани вдоль z; (x,y) — положение центра грани, ny/nx — наружная нормаль
+    const n = Math.max(1, Math.round(p.L / w)), pl = p.L / n;
+    for (let i = 0; i < n; i++) {
+      const z0 = -p.L / 2 + pl * i + m, z1 = -p.L / 2 + pl * (i + 1) - m, h = w / 2 - m;
+      [[-h, z0, h, z1], [-h, z1, h, z0]].forEach(([u0, za, u1, zb]) => {
+        const P = (u, z) => (nz === 'y' ? V(u, y + ny * 1.5, z) : V(x + ny * 1.5, u, z));
+        g.add(rod(P(u0, za), P(u1, zb), 2.2, col));
+      });
+    }
+  };
+  if (p.A >= p.ribMin) { face(p.A, p.B / 2, 0, 'y', 1); face(p.A, -p.B / 2, 0, 'y', -1); }
+  if (p.B >= p.ribMin) { face(p.B, 0, p.A / 2, 'x', 1); face(p.B, 0, -p.A / 2, 'x', -1); }
+}
 def({
   id: 'box', name: 'Короб прямоугольный', fixed: { shape: 'rect' },
-  fields: [numF('A', 'Ширина A, мм', 500, 20), numF('B', 'Высота B, мм', 300, 20), numF('L', 'Длина L, мм', 1250)],
-  label: p => `Короб прямоугольный ${p.A}×${p.B}, L=${p.L}`, calc: ductCalc, build: ductBuild,
+  fields: [numF('A', 'Ширина A, мм', 500, 20), numF('B', 'Высота B, мм', 300, 20), numF('L', 'Длина L, мм', 1250),
+    selF('rib', 'Рёбра жёсткости', [['none', 'Нет'], ['diag', 'Диагональные зиги (X)']], 'none'),
+    numF('ribMin', 'Рёбра на сторонах от, мм', 400, 100, p => p.rib === 'diag')],
+  label: p => `Короб прямоугольный ${p.A}×${p.B}, L=${p.L}` + (p.rib === 'diag' ? ', рёбра жёсткости' : ''),
+  calc(p) {
+    const r = ductCalc.call(this, p);
+    if (p.rib === 'diag') r.dev.push(`Рёбра жёсткости: диагональные зиги на сторонах от ${p.ribMin} мм (${(p.A >= p.ribMin ? 2 : 0) + (p.B >= p.ribMin ? 2 : 0)} грани)`);
+    return r;
+  },
+  build(p) { const g = ductBuild(p); addRibs(g, p); return g; },
 });
 def({
   id: 'pipe', name: 'Труба прямошовная', fixed: { shape: 'round' },
@@ -224,10 +249,11 @@ def({
 
 /* 2. Отвод / колено */
 const elbowR = p => (p.shape === 'round' ? p.rr * p.D : (p.ri || 0) + p.A / 2);   // радиус по оси
+const segN = p => (p.seg > 0 ? p.seg : p.ang <= 45 ? 3 : p.ang <= 90 ? 4 : 5);   // секций сегментного отвода: до 45° — 3, до 90° — 4
 const elbowAngs = p => {
   const al = p.ang * PI / 180;
   if (p.bt === 'seg' && p.shape === 'round') {
-    const k = Math.max(2, Math.round(p.seg)) - 1, a = [0];
+    const k = Math.max(2, Math.round(segN(p))) - 1, a = [0];
     for (let i = 1; i <= k; i++) a.push((2 * i - 1) * al / (2 * k));
     a.push(al); return a;
   }
@@ -240,7 +266,7 @@ def({
     numF('ri', 'Внутренний радиус горловины, мм (0 = острый угол)', 0, 0, p => p.shape === 'rect'),
     numF('ends', 'Прямые участки по краям, мм', 50, 0),
     { k: 'bt', l: 'Тип (круглый)', sel: [['smooth', 'Плавный'], ['seg', 'Сегментный']], v: 'seg', show: p => p.shape === 'round' },
-    numF('seg', 'Секций (сегментный)', 3, 2, p => p.shape === 'round' && p.bt === 'seg')],
+    numF('seg', 'Секций (0 = авто: 45° → 3, 90° → 4)', 0, 0, p => p.shape === 'round' && p.bt === 'seg')],
   label: p => `Отвод ${p.ang}° ${p.shape === 'round' ? (p.bt === 'seg' ? 'круглый сегментный' : 'круглый') : 'прямоугольный'} ${dimStr(shapeOf(p))}`,
   calc(p) {
     const s = shapeOf(p), al = p.ang * PI / 180, dim = s.t === 'round' ? s.d : s.a, R = elbowR(p);
@@ -248,6 +274,7 @@ def({
     const dev = [`Радиус по оси R=${n1(R)} мм, длина дуги по оси ${n1(R * al)} мм`,
       `Внутренний радиус ${n1(R - dim / 2)} мм, наружный ${n1(R + dim / 2)} мм`];
     if (p.ends > 0) dev.push(`Прямые участки: 2 × ${p.ends} мм`);
+    if (s.t === 'round' && p.bt === 'seg') dev.push(`Сегментный отвод: ${segN(p)} секции`);
     if (s.t === 'round' && R <= dim / 2) dev.push('⚠ Радиус слишком мал — увеличьте');
     return res(a, wt(a, p.t), dev);
   },
@@ -698,12 +725,11 @@ const grow = (s, d) => (s.t === 'round' ? { t: 'round', d: s.d + 2 * d } : { t: 
 def({
   id: 'flex', name: 'Гибкая вставка',
   fields: [selF('shape', 'Сечение', SH, 'rect'), ...dims('', '', 'shape', 500, 500, 300), numF('L', 'Длина вставки L, мм', 200),
-    selF('fl', 'Фланец', [['S20', 'Фланец S20'], ['none', 'Без фланца']], 'S20')],
-  label: p => `Гибкая вставка ${p.shape === 'round' ? 'круглая' : 'прямоугольная'} ${dimStr(shapeOf(p))}, L=${p.L}${p.fl === 'S20' ? ', фланец S20' : ''}`,
+    { k: 'fg', l: 'Фланец (шинорейка)', sel: [['S20', 'Фланец S20'], ['S30', 'Фланец S30'], ['none', 'Без фланца']], v: 'S20', show: p => p.shape === 'rect' }],
+  label: p => `Гибкая вставка ${p.shape === 'round' ? 'круглая' : 'прямоугольная'} ${dimStr(shapeOf(p))}, L=${p.L}${p.fg && p.fg !== 'none' && p.shape === 'rect' ? ', фланец ' + p.fg : ''}`,
   calc(p) {
-    const s = shapeOf(p), fab = m2(perim(s) * p.L), fl = p.fl === 'S20' ? 2 * perim(s) / 1000 : 0;   // м.п. профиля
-    return res(fab, fab * 0.6 + fl * 0.35, [`Ткань: ${n1(perim(s))} × ${p.L} мм (${num(fab)} м²)`, p.fl === 'S20' ? `Фланец S20: 2 × ${n1(perim(s))} мм профиля (${num(fl, 2)} м.п.)` : 'Без фланцев',
-      'Вес: ткань 0,6 кг/м² + профиль S20 0,35 кг/м.п.; цену задайте в КП вручную']);
+    const s = shapeOf(p), fab = m2(perim(s) * p.L);
+    return res(fab, fab * 0.6, [`Ткань: ${n1(perim(s))} × ${p.L} мм (${num(fab)} м²), вес ткани 0,6 кг/м²`, 'Цену задайте в КП вручную']);
   },
   build(p) {
     const g = new THREE.Group(), s = shapeOf(p), h = p.L / 2, n = Math.max(4, Math.round(p.L / 25)), rings = [];
@@ -712,8 +738,8 @@ def({
       rings.push(profilePts(q, z));
     }
     put(g, ringsGeom(rings), { flat: isFlat(s), color: VIEW.style === 'draw' ? 0xeceff3 : 0x4a5668 });
-    if (p.fl === 'S20') [-h, h].forEach(z => {
-      const out = grow(s, 20), lip = z < 0 ? [z - 20, z] : [z, z + 20];
+    if (p.shape === 'rect' && p.fg && p.fg !== 'none') [-h, h].forEach(z => {
+      const wl = p.fg === 'S30' ? 30 : 20, out = grow(s, wl), lip = z < 0 ? [z - wl, z] : [z, z + wl];
       put(g, loft(s, z, out, z), { flat: isFlat(s) }); put(g, tube(out, lip[0], lip[1]), { flat: isFlat(s) });
     });
     return g;

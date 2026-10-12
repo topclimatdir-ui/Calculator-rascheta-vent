@@ -31,12 +31,12 @@ const DOC0 = {
   comments: '', boss: 'Директор ТОВ «ВЕНТ ФЕКТОРІ»', bossName: '[ПІБ]',
   foot1: 'ТОВ «ВЕНТ ФЕКТОРІ» · Повітроводи та вентиляційні системи', foot2: '+38 067 8866 255 · ventfactory.kr@gmail.com',
 };
-const SET0 = { zig: 50, snv: {}, lang: 'uk', disc: 10, vat: 20, rate: { '0.5': 650, '0.7': 850, '1': 1200 }, density: 7850, meshW: 1, woolD: 80 };
+const SET0 = { sw20: 88, sw30: 108, stripT: 0.5, cornerP: 0, zig: 50, snv: {}, lang: 'uk', disc: 10, vat: 20, rate: { '0.5': 650, '0.7': 850, '1': 1200 }, density: 7850, meshW: 1, woolD: 80 };
 
 let state = { set: structuredClone(SET0), doc: structuredClone(DOC0), items: [], logo: null, sections: ['Повітроводи та фасонні вироби'] };
 try { const s = JSON.parse(localStorage.getItem(LS)); if (s) { Object.assign(state, s); state.set = Object.assign(structuredClone(SET0), s.set); state.doc = Object.assign(structuredClone(DOC0), s.doc); } } catch (e) { }
 const save = () => { try { localStorage.setItem(LS, JSON.stringify(state)); } catch (e) { } };
-const syncSet = () => { SET.density = +state.set.density; SET.meshW = +state.set.meshW; SET.woolD = +state.set.woolD; SET.zig = +state.set.zig; };
+const syncSet = () => { SET.density = +state.set.density; SET.meshW = +state.set.meshW; SET.woolD = +state.set.woolD; SET.zig = +state.set.zig; SET.sw20 = +state.set.sw20; SET.sw30 = +state.set.sw30; SET.stripT = +state.set.stripT; SET.cornerP = +state.set.cornerP; };
 syncSet();
 
 /* ---------- 3D-просмотр ---------- */
@@ -108,14 +108,14 @@ const cur = { type: TYPES.find(t => t.id === 'pipe'), p: defaultsOf(TYPES.find(t
 let timer;
 
 const GROUPS = [
-  { title: 'Круглое сечение', items: [['pipe'], ['snv'], ['nipple'], ['elbow', { shape: 'round' }, 'Отвод'], ['transition', { s1: 'round', s2: 'round', L: 250 }, 'Переход'],
+  { title: 'Круглое сечение', items: [['pipe'], ['snv'], ['nipple'], ['elbow', { shape: 'round', ang: 45 }, 'Отвод'], ['transition', { s1: 'round', s2: 'round', L: 250 }, 'Переход'],
     ['tee', { s1: 'round', s2: 'round' }, 'Тройник / врезка / крестовина'], ['throttle', { shape: 'round' }], ['cap', { shape: 'round', h: 80 }], ['mesh', { shape: 'round', fw: 80 }],
-    ['clamp'], ['mushroom'], ['tsagi'], ['exhaust45'], ['nozzle'], ['silround'], ['flex', { shape: 'round' }, 'Гибкая вставка'], ['filterbox', { cs: 'round' }, 'Фильтр-бокс (круглое присоединение)']] },
+    ['clamp'], ['mushroom'], ['tsagi'], ['exhaust45'], ['nozzle'], ['silround'], ['flex', { shape: 'round', fg: 'none' }, 'Гибкая вставка'], ['filterbox', { cs: 'round' }, 'Фильтр-бокс (круглое присоединение)']] },
   { title: 'Прямоугольное сечение', items: [['box'], ['elbow', { shape: 'rect', ends: 100, ang: 90, ri: 0 }, 'Отвод'], ['transition', { s1: 'rect', s2: 'rect', L: 250 }, 'Переход'],
-    ['tee', { s1: 'rect', s2: 'rect' }, 'Тройник / врезка / крестовина'], ['throttle', { shape: 'rect' }], ['cap', { shape: 'rect' }], ['mesh', { shape: 'rect' }],
+    ['tee', { s1: 'rect', s2: 'rect', Lb: 80 }, 'Тройник / врезка / крестовина'], ['throttle', { shape: 'rect' }], ['cap', { shape: 'rect' }], ['mesh', { shape: 'rect' }],
     ['silrect'], ['filterbox', { cs: 'rect' }, 'Фильтр-бокс (прямоуг. присоединение)'], ['cassette'], ['pocketf'], ['flex', { shape: 'rect' }, 'Гибкая вставка (фланец S20)'], ['hood']] },
   { title: 'Комбинированные: круг и прямоугольник', items: [['transition', { s1: 'round', s2: 'rect', L: 250 }, 'Переход круг → прямоугольник'],
-    ['transition', { s1: 'rect', s2: 'round', L: 250 }, 'Переход прямоугольник → круг'], ['tee', { s1: 'rect', s2: 'round' }, 'Тройник: магистраль прямоуг., ответвление круглое'],
+    ['transition', { s1: 'rect', s2: 'round', L: 250 }, 'Переход прямоугольник → круг'], ['tee', { s1: 'rect', s2: 'round', Lb: 80 }, 'Тройник: магистраль прямоуг., ответвление круглое'],
     ['tee', { s1: 'round', s2: 'rect' }, 'Тройник: магистраль круглая, ответвление прямоуг.']] },
 ];
 const ENTRIES = []; GROUPS.forEach((g, gi) => g.items.forEach(([id, preset, label]) => ENTRIES.push({ gi, id, preset: preset || {}, label: label || TYPES.find(t => t.id === id).name })));
@@ -138,18 +138,20 @@ function numericOk() {
 function rateFor(t) { return +state.set.rate[String(+t)] || 0; }
 const ROUND_ZIG = ['pipe', 'snv', 'elbow', 'transition', 'tee', 'throttle', 'cap', 'mesh', 'mushroom', 'tsagi', 'exhaust45', 'nozzle', 'silround', 'hood'];
 function compute(type, p) {
-  const r = type.calc(p);
+  const r = withFlange(type, p, type.calc(p));
   const round = type.fixed ? type.fixed.shape === 'round' : [p.shape, p.s1, p.s2, p.ns, p.cs].includes('round') || ['mushroom', 'tsagi', 'exhaust45', 'nozzle', 'silround'].includes(type.id);
   if (SET.zig > 0 && round && ROUND_ZIG.includes(type.id)) r.dev = [...r.dev, `Зиг по окружности на круглых частях: ${SET.zig} мм от края`];
   return r;
 }
 const SNV_D = [100, 125, 160, 200, 250, 315, 355, 400, 450, 500, 560, 630, 710, 800, 900, 1000];
-function autoPrice(type, p, area) {   // цена за единицу (шт.)
+function autoPrice(type, p, r) {   // цена за единицу (шт.)
+  const area = r.areaSheet != null ? r.areaSheet : r.area;
   if (type.perMp) {
     const mp = +(state.set.snv || {})[p.D] || (area / (p.L / 1000)) * rateFor(p.t);
     return Math.round(mp * p.L / 1000 * 100) / 100;
   }
-  return Math.round(area * rateFor(p.t) * 100) / 100;
+  const f = r.flange;   // фланец: шинорейка из штрипса по цене за м² его толщины + уголки
+  return Math.round((area * rateFor(p.t) + (f ? f.area * rateFor(SET.stripT) + f.corners * (+state.set.cornerP || 0) : 0)) * 100) / 100;
 }
 
 function update() {
@@ -158,7 +160,7 @@ function update() {
   if (!ok) { $('#result').innerHTML = ''; return; }
   const r = compute(cur.type, cur.p);
   cur.r = r;
-  const unit = autoPrice(cur.type, cur.p, r.area);
+  const unit = autoPrice(cur.type, cur.p, r);
   $('#result').innerHTML = `
     <div class="kpis"><div><span>Площадь</span><b>${num(r.area)} м²</b></div><div><span>Вес</span><b>${num(r.weight, 2)} кг</b></div>
     <div><span>Цена (авто)</span><b>${money(unit)} грн</b></div></div>
@@ -211,7 +213,7 @@ function rowsData() {
   const L = state.set, disc = (+L.disc || 0) / 100;
   return state.items.map(it => {
     const type = TYPES.find(t => t.id === it.type), r = compute(type, it.p);
-    const price = it.price != null ? it.price : autoPrice(type, it.p, r.area);
+    const price = it.price != null ? it.price : autoPrice(type, it.p, r);
     const pd = Math.round(price * (1 - disc) * 100) / 100;
     return { it, name: type.label(it.p), th: it.p.t, r, price, pd, sr: price * it.qty, sd: pd * it.qty, area: r.area * it.qty, w: r.weight * it.qty };
   });
@@ -233,7 +235,7 @@ function renderKP() {
         <td class="c"><input class="qty" type="number" min="1" value="${r.it.qty}" data-f="qty"> <small>${T.unit}</small></td>
         <td class="r"><input class="pr" type="text" value="${money(r.price)}" data-f="price"></td>
         <td class="r">${money(r.sr)}</td><td class="r">${money(r.pd)}</td><td class="r">${money(r.sd)}</td>
-        <td class="r">${num(r.area)}</td><td class="r">${num(r.w, 2)}</td></tr>`;
+        <td class="r">${num(r.area)}${r.r.flange ? `<small class="fa">изд. ${num(r.r.areaSheet * r.it.qty)}<br>фл. ${num(r.r.flange.area * r.it.qty)}</small>` : ''}</td><td class="r">${num(r.w, 2)}</td></tr>`;
     });
     body += `<tr class="tot"><td colspan="4">${T.secTotal} «${esc(s)}»</td><td class="r">${money(t.sr)}</td><td></td><td class="r">${money(t.sd)}</td><td class="r">${num(t.area)}</td><td class="r">${num(t.w, 2)}</td></tr>`;
     secSum.push([s, t]); ['sr', 'sd', 'area', 'w'].forEach(k => { S[k] += t[k]; });
@@ -278,7 +280,7 @@ function printSketch(type, p, qty) {
     const v = f.sel ? (f.sel.find(o => o[0] === p[f.k]) || [, p[f.k]])[1] : p[f.k];
     return `<tr><td>${esc(f.l)}</td><td>${esc(v)}</td></tr>`;
   }).join('') + `<tr><td>Толщина металла, мм</td><td>${String(p.t).replace('.', ',')}</td></tr>` + (qty ? `<tr><td>${T.qty}</td><td>${qty} ${T.unit}</td></tr>` : '') +
-    `<tr><td>${T.area}</td><td>${num(r.area)}</td></tr><tr><td>${T.w}</td><td>${num(r.weight, 2)}</td></tr>`;
+    (r.flange ? `<tr><td>Квадратура изделия, м²</td><td>${num(r.areaSheet)}</td></tr><tr><td>Фланец ${r.flange.type} (шинорейка), м²</td><td>${num(r.flange.area)}</td></tr><tr><td>Уголки ${r.flange.type}, шт.</td><td>${r.flange.corners}</td></tr>` : '') + `<tr><td>${T.area}${r.flange ? ' с фланцем' : ''}</td><td>${num(r.area)}</td></tr><tr><td>${T.w}</td><td>${num(r.weight, 2)}</td></tr>`;
   $('#sketch').innerHTML = `<div class="skh"><img src="${state.logo || LOGO}" alt=""><div><b>${esc(D.company)}</b><br><small>${esc(D.legal)}</small></div><div class="skc">${esc(D.contacts).replace(/\n/g, '<br>')}</div></div>
     <h2>${T.sk}</h2><p class="skm">${T.obj} ${esc(D.obj)} &nbsp; ${T.cust} ${esc(D.cust)}</p><h3>${esc(type.label(p))}</h3>
     <div class="skb"><img class="skimg" src="${snapshot(type, p, 1500, 1050, 40)}" alt=""><div><h4>${T.params}</h4><table>${rows}</table>
