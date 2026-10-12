@@ -766,8 +766,8 @@ def({
       const z = -h + p.L * i / n, k = i % 2 ? 1 : 0, q = k ? shrink(s, 6) : s;
       rings.push(profilePts(q, z));
     }
-    put(g, ringsGeom(rings), { flat: isFlat(s), color: VIEW.style === 'draw' ? 0xeceff3 : 0x4a5668 });
-    if (p.shape === 'rect' && p.fg && p.fg !== 'none') { drawFlange(g, s, at(0, 0, -h, PI), p.fg); drawFlange(g, s, at(0, 0, h, 0), p.fg); }
+    put(g, ringsGeom(rings), { flat: isFlat(s), color: VIEW.style === 'draw' ? 0xeceff3 : 0x2d3138 });
+    if (p.shape === 'rect' && p.fg && p.fg !== 'none') { drawFlange(g, s, at(0, 0, -h, PI), p.fg, 'frame'); drawFlange(g, s, at(0, 0, h, 0), p.fg, 'frame'); }
     return g;
   },
 });

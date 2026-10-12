@@ -47,23 +47,30 @@ const FL_SHOW = {
 const FL_OPTS = [['none', 'Без фланца'], ['S20', 'Фланец S20 (шинорейка)'], ['S30', 'Фланец S30 (шинорейка)']];
 const flW = fg => (fg === 'S30' ? SET.sw30 : SET.sw20);
 
-function drawFlange(g, s, m, fg) {
-  /* четыре рейки шинорейки (рамка вокруг торца) + четыре уголка с отверстиями по углам */
-  const w = fg === 'S30' ? 30 : 20, d = w, grp = new THREE.Group(), draw = VIEW.style === 'draw';
+const FL_T = 5;   // толщина фланца из шинорейки, мм
+function drawFlange(g, s, m, fg, mode) {
+  /* mode 'frame' — рама гибкой вставки (плоская рамка + полка вдоль ткани); иначе — четыре рейки шинорейки вокруг торца.
+     Плюс четыре уголка с отверстиями по углам */
+  const w = fg === 'S30' ? 30 : 20, grp = new THREE.Group(), draw = VIEW.style === 'draw';
   const railMat = () => mat(draw ? 0xeef1f5 : 0x8394a8), edge = () => new THREE.LineBasicMaterial({ color: draw ? 0x111111 : COL.edge });
   const box = (sx, sy, sz, x, y, z, material) => {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), material); mesh.position.set(x, y, z); grp.add(mesh);
     const ln = new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry), edge()); ln.position.copy(mesh.position); grp.add(ln);
     return mesh;
   };
-  const zc = 5 - d / 2, a = s.a, b = s.b;
-  box(a + 2 * w, w, d, 0, b / 2 + w / 2, zc, railMat()); box(a + 2 * w, w, d, 0, -b / 2 - w / 2, zc, railMat());   // верхняя и нижняя рейки
-  box(w, b, d, a / 2 + w / 2, 0, zc, railMat()); box(w, b, d, -a / 2 - w / 2, 0, zc, railMat());                  // боковые рейки
+  const a = s.a, b = s.b, zc = FL_T / 2, zt = FL_T;
+  if (mode === 'frame') {
+    const out = grow(s, w);
+    put(grp, loft(s, 0, out, 0), { flat: true }); put(grp, tube(out, -30, 0), { flat: true });
+  } else {
+    box(a + 2 * w, w, FL_T, 0, b / 2 + w / 2, zc, railMat()); box(a + 2 * w, w, FL_T, 0, -b / 2 - w / 2, zc, railMat());   // верхняя и нижняя рейки
+    box(w, b, FL_T, a / 2 + w / 2, 0, zc, railMat()); box(w, b, FL_T, -a / 2 - w / 2, 0, zc, railMat());                  // боковые рейки
+  }
   const hr = fg === 'S30' ? 6 : 4.5, dark = new THREE.MeshBasicMaterial({ color: 0x1b222a, side: THREE.DoubleSide });
   [[1, 1], [-1, 1], [-1, -1], [1, -1]].forEach(([sx, sy]) => {
     const cx = sx * (a / 2 + w / 2), cy = sy * (b / 2 + w / 2);
-    box(w + 6, w + 6, 3, cx, cy, 6.5, mat(draw ? 0xdfe5ec : 0x6d7d91));                                            // уголок
-    const hole = new THREE.Mesh(new THREE.CircleGeometry(hr, 24), dark); hole.position.set(cx, cy, 8.1); grp.add(hole);
+    box(w + 6, w + 6, 2, cx, cy, zt + 1, mat(draw ? 0xdfe5ec : 0x6d7d91));                                            // уголок
+    const hole = new THREE.Mesh(new THREE.CircleGeometry(hr, 24), dark); hole.position.set(cx, cy, zt + 2.1); grp.add(hole);
   });
   grp.applyMatrix4(m); g.add(grp);
 }
