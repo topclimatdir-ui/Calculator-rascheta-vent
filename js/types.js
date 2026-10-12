@@ -425,9 +425,22 @@ def({
     put(g, tube(s, -p.L / 2, p.L / 2), { flat: isFlat(s) }); zigs(g, s, -p.L / 2, p.L / 2);
     const disc = s.t === 'round' ? new THREE.CircleGeometry(s.d / 2 - 2, 48) : new THREE.PlaneGeometry(s.a - 4, s.b - 4);
     const dm = new THREE.Mesh(disc, mat(0x6f8aa6)); dm.rotation.y = p.open * PI / 180; g.add(dm);
-    const h = (s.t === 'round' ? s.d : s.b) / 2;
-    g.add(rod(new THREE.Vector3(0, -h - 5, 0), new THREE.Vector3(0, h + 45, 0), 4));
-    g.add(rod(new THREE.Vector3(0, h + 45, 0), new THREE.Vector3(Math.max(60, h * 0.5), h + 45, 0), 5, 0xc0392b));
+    const op = p.open * PI / 180;
+    if (s.t === 'round') {   // как на образце: ось с квадратным концом, секторная пластина с дугой и рычаг с барашком
+      const r = s.d / 2, len = Math.max(70, s.d * 0.5), steel = mat(COL.steel), dk = mat(0x39414b);
+      g.add(rod(V(0, -r - 5, 0), V(0, r + 14, 0), 4, 0x39414b));
+      const plate = new THREE.Mesh(new THREE.BoxGeometry(len * 0.9, 3, Math.min(p.L, len * 0.8)), steel); plate.position.set(len * 0.3, r + 1.5, 0); g.add(plate);
+      const arc = []; for (let i = 0; i <= 20; i++) { const ar = PI / 2 * i / 20; arc.push(V(len * 0.62 * Math.cos(ar), r + 3.2, -len * 0.62 * Math.sin(ar) * 0.55)); }
+      g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(arc), new THREE.LineBasicMaterial({ color: 0x1b222a })));
+      const lg = new THREE.BoxGeometry(len, 3, Math.min(26, p.L * 0.35)); lg.translate(len / 2 - 8, 0, 0);
+      const lever = new THREE.Mesh(lg, steel); lever.position.set(0, r + 6, 0); lever.rotation.y = -op * 0.8; g.add(lever);
+      const sq = new THREE.Mesh(new THREE.BoxGeometry(12, 12, 12), dk); sq.position.set(0, r + 14, 0); g.add(sq);
+      const nut = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 6, 16), steel); nut.position.set(len * 0.55 * Math.cos(-op * 0.8), r + 10, -len * 0.55 * Math.sin(-op * 0.8)); g.add(nut);
+    } else {
+      const h = s.b / 2;
+      g.add(rod(new THREE.Vector3(0, -h - 5, 0), new THREE.Vector3(0, h + 45, 0), 4));
+      g.add(rod(new THREE.Vector3(0, h + 45, 0), new THREE.Vector3(Math.max(60, h * 0.5), h + 45, 0), 5, 0xc0392b));
+    }
     return g;
   },
 });
