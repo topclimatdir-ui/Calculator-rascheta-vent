@@ -413,12 +413,13 @@ def({
 def({
   id: 'throttle', name: 'Дроссель-клапан',
   fields: [selF('shape', 'Сечение', SH, 'round'), ...dims('', '', 'shape', 315, 500, 300),
-    numF('L', 'Длина корпуса L, мм', 150), numF('open', 'Показать угол открытия, ° (для картинки)', 35, 0)],
-  label: p => `Дроссель-клапан ${p.shape === 'round' ? 'круглый' : 'прямоугольный'} ${dimStr(shapeOf(p))}, L=${p.L}`,
+    numF('L', 'Длина корпуса L, мм', 150), numF('open', 'Показать угол открытия, ° (для картинки)', 35, 0),
+    selF('drive', 'Управление', [['hand', 'Ручной рычаг'], ['act', 'Под привод']], 'hand')],
+  label: p => `${p.drive === 'act' ? 'Клапан под привод' : 'Дроссель-клапан'} ${p.shape === 'round' ? 'круглый' : 'прямоугольный'} ${dimStr(shapeOf(p))}, L=${p.L}`,
   calc(p) {
-    const s = shapeOf(p), a = m2(perim(s) * p.L + areaCS(s)), w = wt(a, p.t) + 0.3;
+    const s = shapeOf(p), a = m2(perim(s) * p.L + areaCS(s)), act = p.drive === 'act', w = wt(a, p.t) + (act ? 0.5 : 0.3);
     return res(a, w, [`Корпус: ${n1(perim(s))} × ${n1(p.L)} мм`, `Заслонка: ${s.t === 'round' ? 'Ø' + n1(s.d - 4) : n1(s.a - 4) + '×' + n1(s.b - 4)} мм`,
-      'В вес включено 0,3 кг на ось и ручку']);
+      act ? 'Под привод: кронштейн с площадкой и удлинённая ось (привод в комплект не входит). В вес включено 0,5 кг' : 'В вес включено 0,3 кг на ось и ручку']);
   },
   build(p) {
     const g = new THREE.Group(), s = shapeOf(p);
@@ -426,7 +427,13 @@ def({
     const disc = s.t === 'round' ? new THREE.CircleGeometry(s.d / 2 - 2, 48) : new THREE.PlaneGeometry(s.a - 4, s.b - 4);
     const dm = new THREE.Mesh(disc, mat(0x6f8aa6)); dm.rotation.y = p.open * PI / 180; g.add(dm);
     const op = p.open * PI / 180;
-    if (s.t === 'round') {   // как на образце: ось с квадратным концом, секторная пластина с дугой и рычаг с барашком
+    if (p.drive === 'act') {   // под привод: удлинённая ось и кронштейн-площадка (как у КВК)
+      const r = (s.t === 'round' ? s.d : s.b) / 2, steel = mat(COL.steel), top = r + 38, bw = Math.min(110, (s.t === 'round' ? s.d : s.a) * 0.5), bl = Math.min(p.L * 0.9, 120);
+      g.add(rod(V(0, -r - 5, 0), V(0, top + 110, 0), 5, 0x39414b));
+      const plate = new THREE.Mesh(new THREE.BoxGeometry(bw, 3, bl), steel); plate.position.set(0, top, 0); g.add(plate);
+      [-1, 1].forEach(sg => { const leg = new THREE.Mesh(new THREE.BoxGeometry(3, top - r, bl * 0.7), steel); leg.position.set(sg * bw * 0.3, (top + r) / 2, 0); g.add(leg); });
+      const ex = new THREE.Mesh(new THREE.BoxGeometry(bw * 0.35, 3, 28), steel); ex.position.set(-bw * 0.65, top, 0); g.add(ex);
+    } else if (s.t === 'round') {   // как на образце: ось с квадратным концом, секторная пластина с дугой и рычаг с барашком
       const r = s.d / 2, len = Math.max(70, s.d * 0.5), steel = mat(COL.steel), dk = mat(0x39414b);
       g.add(rod(V(0, -r - 5, 0), V(0, r + 14, 0), 4, 0x39414b));
       const plate = new THREE.Mesh(new THREE.BoxGeometry(len * 0.9, 3, Math.min(p.L, len * 0.8)), steel); plate.position.set(len * 0.3, r + 1.5, 0); g.add(plate);
