@@ -21,10 +21,9 @@ const PLACE = {
     return out;
   },
   tee(p) {
-    const s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'), al = p.ang * PI / 180, out = [];
-    const len = p.Lb + (s1.t === 'round' ? s1.d : s1.a) / 2 / Math.sin(al);
+    const s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'), out = [];
     if (s1.t === 'rect' && p.kind !== 'saddle') out.push({ s: s1, m: at(0, 0, -p.L / 2, PI) }, { s: s1, m: at(0, 0, p.L / 2, 0) });
-    if (s2.t === 'rect') (p.kind === 'cross' ? [al, -al] : [al]).forEach(a => out.push({ s: s2, m: RY(a).multiply(T4(0, 0, len)) }));
+    if (s2.t === 'rect') teeAngles(p).forEach(a => out.push({ s: s2, m: teeFrame(p, a).multiply(T4(0, 0, teeBranch(p, a).tTop)) }));
     return out;
   },
   throttle(p) { const s = shapeOf(p); return s.t === 'rect' ? [{ s, m: at(0, 0, -p.L / 2, PI) }, { s, m: at(0, 0, p.L / 2, 0) }] : []; },

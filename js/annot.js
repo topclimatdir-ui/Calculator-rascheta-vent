@@ -49,13 +49,13 @@ const ANN = {
     return out;
   },
   tee(p) {
-    const s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'), al = p.ang * PI / 180, sin = Math.sin(al), h = p.L / 2;
-    const k = kk(hx(s1) * 2, hx(s2) * 2), len = p.Lb + hx(s1) / sin;
+    const s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'), h = p.L / 2, k = kk(hx(s1) * 2, hx(s2) * 2);
     const out = [...sec(s1, h, k), lin(V(0, hy(s1), -h), V(0, hy(s1), h), V(0, k, 0), 'L=' + p.L)];
-    (p.kind === 'cross' ? [al, -al] : [al]).forEach(a => {
-      const br = [...sec(s2, len, k), lin(V(0, hy(s2), hx(s1) / sin), V(0, hy(s2), len), V(0, k, 0), 'l=' + p.Lb)];
-      out.push(...xf(br, new THREE.Matrix4().makeRotationY(a)));
+    teeAngles(p).forEach(a => {
+      const tb = teeBranch(p, a), br = [...sec(s2, tb.tTop, k), lin(V(tb.ext.x, tb.ext.y, tb.ext.t), V(tb.ext.x, tb.ext.y, tb.tTop), V(0, k, 0), 'l=' + p.Lb)];
+      out.push(...xf(br, teeFrame(p, a)));
     });
+    out.push(lab(V(0, hy(s1) + k * 1.4, h * 0.6), '∠' + p.ang + '°'));
     return out;
   },
   throttle(p) {

@@ -335,39 +335,59 @@ def({
   },
 });
 
-/* 4. Тройник / врезка / крестовина */
+/* 4. Тройник / врезка / крестовина.
+   Ответвление строится только снаружи магистрали: нижнее кольцо лежит ровно на стенке (плоскость или цилиндр),
+   ось ответвления проходит через центр стенки магистрали (z = 0, y = 0) под заданным углом, Lb — длина вдоль оси от стенки. */
+const teeHalf = p => { const s1 = shapeOf(p, '1', 's1'); return (s1.t === 'round' ? s1.d : s1.a) / 2; };
+const teeFrame = (p, a) => T4(Math.sin(a) < 0 ? -teeHalf(p) : teeHalf(p), 0, 0).multiply(RY(a));   // система координат ответвления: начало на стенке, ось z вдоль ответвления
+function teeBranch(p, a) {
+  const s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'), sin = Math.sin(a), cos = Math.cos(a), sg = sin < 0 ? -1 : 1, half = teeHalf(p);
+  const d = new THREE.Vector3(sin, 0, cos), xp = new THREE.Vector3(cos, 0, -sin), O = new THREE.Vector3(sg * half, 0, 0), pts = [];
+  let tooWide = false, zExt = 0, ext = { t: -Infinity, x: 0, y: 0 };
+  profilePts(s2, 0).forEach(v => {
+    if (s1.t === 'round' && Math.abs(v.y) > half) tooWide = true;
+    const xw = s1.t === 'round' ? sg * Math.sqrt(Math.max(0, half * half - v.y * v.y)) : sg * half;   // стенка магистрали в точке с высотой y
+    const t = (xw - O.x - v.x * cos) / sin, base = O.clone().addScaledVector(xp, v.x).add(new THREE.Vector3(0, v.y, 0));
+    pts.push({ base, t, pb: base.clone().addScaledVector(d, t) });
+    zExt = Math.max(zExt, Math.abs(pts[pts.length - 1].pb.z));
+    if (t > ext.t) ext = { t, x: v.x, y: v.y };
+  });
+  const tTop = ext.t + p.Lb;   // торец ответвления — плоскость ⟂ оси; Lb отсчитывается от самой дальней точки стенки (короткая сторона)
+  return { geom: ringsGeom([pts.map(q => q.pb), pts.map(q => q.base.clone().addScaledVector(d, tTop))]), tTop, ext, zExt, tooWide };
+}
+const teeAngles = p => { const al = Math.min(Math.max(p.ang, 20), 160) * PI / 180; return p.kind === 'cross' ? [al, -al] : [al]; };
 def({
   id: 'tee', name: 'Тройник / врезка / крестовина',
   fields: [selF('kind', 'Вид', [['tee', 'Тройник'], ['cross', 'Крестовина'], ['saddle', 'Врезка (седло)']], 'tee'),
     selF('s1', 'Сечение магистрали', SH, 'round'),
     ...dims('1', 'магистрали', 's1', 315, 500, 300), numF('L', 'Длина магистрали L, мм', 600),
     selF('s2', 'Сечение ответвления', SH, 'round'),
-    ...dims('2', 'ответвления', 's2', 200, 300, 200), numF('Lb', 'Длина ответвления от стенки, мм', 300),
-    numF('ang', 'Угол ответвления, °', 90, 20)],
+    ...dims('2', 'ответвления', 's2', 200, 300, 200), numF('Lb', 'Длина ответвления по короткой стороне, мм', 300),
+    numF('ang', 'Угол ответвления, ° (20…160)', 90, 20)],
   label: p => `${{ tee: 'Тройник', cross: 'Крестовина', saddle: 'Врезка' }[p.kind]} ${''} ${dimStr(shapeOf(p, '1', 's1'))} / ответвление ${dimStr(shapeOf(p, '2', 's2'))}, ${p.ang}°`,
   calc(p) {
-    const s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'), sin = Math.sin(p.ang * PI / 180), n = p.kind === 'cross' ? 2 : 1;
+    const s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'), angs = teeAngles(p), brs = angs.map(a => teeBranch(p, a));
+    const areaB = brs.reduce((t, b) => t + geomArea(b.geom), 0), hole = angs.reduce((t, a) => t + areaCS(s2) / Math.abs(Math.sin(a)), 0);
     let a, dev;
     if (p.kind === 'saddle') {
-      a = m2(perim(s2) * p.Lb);
-      dev = [`Ответвление: ${n1(perim(s2))} × ${n1(p.Lb)} мм`, 'Отверстие в воздуховоде и седло — по месту'];
+      a = m2(areaB);
+      dev = [`Ответвление: ${n1(perim(s2))} × ${n1(p.Lb)} мм по короткой стороне`, 'Отверстие в воздуховоде и седло — по месту'];
     } else {
-      const hole = areaCS(s2) / sin * n;
-      a = m2(perim(s1) * p.L + perim(s2) * p.Lb * n - hole);
-      dev = [`Магистраль: ${n1(perim(s1))} × ${n1(p.L)} мм`, `Ответвление: ${n1(perim(s2))} × ${n1(p.Lb)} мм` + (n > 1 ? ' (2 шт.)' : ''),
-        `Отверстие(я) в магистрали: ${n1(areaCS(s2) / sin)} мм² (каждое)`];
+      a = m2(perim(s1) * p.L + areaB - hole);
+      dev = [`Магистраль: ${n1(perim(s1))} × ${n1(p.L)} мм`, `Ответвление: ${n1(perim(s2))} × ${n1(p.Lb)} мм по короткой стороне${brs.length > 1 ? ' (2 шт.)' : ''}, угол ${p.ang}°`,
+        `Отверстие(я) в магистрали: ${n1(areaCS(s2) / Math.abs(Math.sin(angs[0])))} мм² (каждое)`];
     }
+    if (brs.some(b => b.tooWide)) dev.push('⚠ Ответвление шире круглой магистрали — уменьшите размер');
+    if (p.kind !== 'saddle' && brs.some(b => b.zExt > p.L / 2)) dev.push('⚠ Ответвление выходит за длину магистрали — увеличьте L');
     return res(a, wt(a, p.t), dev);
   },
   build(p) {
-    const g = new THREE.Group(), s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'), al = p.ang * PI / 180, sin = Math.sin(al);
-    const ghost = p.kind === 'saddle';
+    const g = new THREE.Group(), s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'), ghost = p.kind === 'saddle';
     put(g, tube(s1, -p.L / 2, p.L / 2), { flat: isFlat(s1), opacity: ghost ? 0.22 : 1, edges: !ghost });
     if (!ghost) zigs(g, s1, -p.L / 2, p.L / 2);
-    const half = (s1.t === 'round' ? s1.d : s1.a) / 2, len = p.Lb + half / sin;
-    const dirs = p.kind === 'cross' ? [al, -al] : [al];
-    dirs.forEach(a => {
-      const b = new THREE.Group(); put(b, tube(s2, 0, len), { flat: isFlat(s2) }); if (s2.t === 'round' && p.Lb > SET.zig) zig(b, s2.d / 2, len - SET.zig); b.rotation.y = a; g.add(b);
+    teeAngles(p).forEach(a => {
+      const br = teeBranch(p, a); put(g, br.geom, { flat: isFlat(s2) });
+      if (s2.t === 'round' && p.Lb > SET.zig + 10) { const b = new THREE.Group(); zig(b, s2.d / 2, br.tTop - SET.zig); b.applyMatrix4(teeFrame(p, a)); g.add(b); }
     });
     return g;
   },
