@@ -104,6 +104,15 @@ const ANN = {
     if (p.hang === 'm8') out.push(lin(V(0, r, p.w / 2 + 12), V(0, r + p.hl, p.w / 2 + 12), V(0, 0, k * 0.6), 'М8 L=' + p.hl));
     return out;
   },
+  roofsq(p) {
+    const q = TYPES.find(t => t.id === 'roofsq').geoms(p), k = kk(q.base.a, q.base.b) * 0.8, H = q.zb + p.hr;
+    return [lin(V(-q.base.a / 2, -q.base.b / 2, q.zb), V(q.base.a / 2, -q.base.b / 2, q.zb), V(0, -k, 0), 'A=' + q.base.a), lin(V(q.base.a / 2, -q.base.b / 2, q.zb), V(q.base.a / 2, q.base.b / 2, q.zb), V(k, 0, 0), 'B=' + q.base.b),
+      lin(V(q.base.a / 2, q.base.b / 2, 0), V(q.base.a / 2, q.base.b / 2, H), V(k, 0, 0), 'H=' + H), ...sec(q.neck, 0, k)];
+  },
+  louver(p) {
+    const k = kk(p.D, p.Dc), H = p.hs + p.nl * p.pt + 10 + p.Dc * 0.18, R = p.Dc / 2 + 30;
+    return [lin(V(-p.D / 2, 0, 0), V(p.D / 2, 0, 0), V(0, -k, 0), 'Ø' + p.D), lin(V(-p.Dc / 2, 0, p.hs + 10), V(p.Dc / 2, 0, p.hs + 10), V(0, -k, 0), 'Ø' + p.Dc), lin(V(R, 0, 0), V(R, 0, Math.round(H)), V(k, 0, 0), 'H=' + Math.round(H))];
+  },
   hood(p) {
     const q = TYPES.find(t => t.id === 'hood').dimsOf(p), k = kk(p.A, p.B) * 0.8, top = q.zt + p.hn;
     return [lin(V(-p.A / 2, -p.B / 2, 0), V(p.A / 2, -p.B / 2, 0), V(0, -k, 0), 'A=' + p.A), lin(V(p.A / 2, -p.B / 2, 0), V(p.A / 2, p.B / 2, 0), V(k, 0, 0), 'B=' + p.B),

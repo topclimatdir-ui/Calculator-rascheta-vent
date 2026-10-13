@@ -160,7 +160,7 @@ const GROUPS = [
   { title: 'Комбинированные: круг и прямоугольник', items: [['transition', { s1: 'round', s2: 'rect', L: 250 }, 'Переход круг → прямоугольник'],
     ['transition', { s1: 'rect', s2: 'round', L: 250 }, 'Переход прямоугольник → круг'], ['tee', { s1: 'rect', s2: 'round' }, 'Тройник: магистраль прямоуг., ответвление круглое'],
     ['tee', { s1: 'round', s2: 'rect' }, 'Тройник: магистраль круглая, ответвление прямоуг.']] },
-  { title: 'Зонты', items: [['hood', { kind: 'wall' }, 'Вытяжной пристенный'], ['hood', { kind: 'island' }, 'Вытяжной островной']] },
+  { title: 'Зонты', items: [['hood', { kind: 'wall' }, 'Вытяжной пристенный'], ['hood', { kind: 'island' }, 'Вытяжной островной'], ['roofsq'], ['louver']] },
 ];
 const ENTRIES = [];   // внутри каждого раздела изделия идут по алфавиту
 GROUPS.forEach((g, gi) => g.items.map(([id, preset, label]) => ({ gi, id, preset: preset || {}, label: label || TYPES.find(t => t.id === id).name }))
@@ -182,10 +182,10 @@ function numericOk() {
   return cur.type.fields.every(f => (f.show && !f.show(cur.p)) || f.sel || (isFinite(cur.p[f.k]) && cur.p[f.k] >= f.min));
 }
 function rateFor(t) { return +state.set.rate[String(+t)] || 0; }
-const ROUND_ZIG = ['pipe', 'snv', 'elbow', 'transition', 'tee', 'tap', 'throttle', 'checkv', 'cap', 'mesh', 'mushroom', 'tsagi', 'exhaust45', 'nozzle', 'silround', 'hood'];
+const ROUND_ZIG = ['pipe', 'snv', 'elbow', 'transition', 'tee', 'tap', 'throttle', 'checkv', 'cap', 'mesh', 'mushroom', 'tsagi', 'exhaust45', 'nozzle', 'silround', 'hood', 'louver'];
 function compute(type, p) {
   const r = withFlange(type, p, type.calc(p));
-  const round = type.fixed ? type.fixed.shape === 'round' : [p.shape, p.s1, p.s2, p.ns, p.cs].includes('round') || ['mushroom', 'tsagi', 'exhaust45', 'nozzle', 'silround'].includes(type.id);
+  const round = type.fixed ? type.fixed.shape === 'round' : [p.shape, p.s1, p.s2, p.ns, p.cs].includes('round') || ['mushroom', 'tsagi', 'exhaust45', 'nozzle', 'silround', 'louver'].includes(type.id);
   if (SET.zig > 0 && round && ROUND_ZIG.includes(type.id)) r.dev = [...r.dev, `Зиг по окружности на круглых частях: ${SET.zig} мм от края`];
   return r;
 }

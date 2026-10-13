@@ -864,6 +864,51 @@ def({
   },
 });
 
+/* Зонт крышный прямоугольный: прямоугольный патрубок, сверху четырёхскатная крыша на четырёх стойках с вылетом ov */
+def({
+  id: 'roofsq', name: 'Зонт крышный прямоугольный', up: true,
+  fields: [numF('a', 'Патрубок A, мм', 500, 20), numF('b', 'Патрубок B, мм', 400, 20), numF('hn', 'Высота патрубка, мм', 100), numF('gap', 'Зазор под крышей, мм', 80),
+    numF('ov', 'Вылет крыши с каждой стороны, мм', 100), numF('hr', 'Высота крыши, мм', 120)],
+  label: p => `Зонт крышный прямоугольный ${p.a}×${p.b}, крыша ${p.a + 2 * p.ov}×${p.b + 2 * p.ov}×${p.hr}`,
+  geoms(p) {
+    const neck = { t: 'rect', a: p.a, b: p.b }, base = { t: 'rect', a: p.a + 2 * p.ov, b: p.b + 2 * p.ov }, top = { t: 'rect', a: Math.max(20, base.a * 0.12), b: Math.max(20, base.b * 0.12) }, zb = p.hn + p.gap;
+    return { neck, base, top, zb, roof: loft(base, zb, top, zb + p.hr), neckT: tube(neck, 0, p.hn) };
+  },
+  calc(p) {
+    const q = this.geoms(p), legs = 4 * 25 * (p.gap + p.hr * 0.5), a = m2(geomArea(q.neckT) + geomArea(q.roof) + legs);
+    return res(a, wt(a, p.t), [`Патрубок: ${n1(perim(q.neck))} × ${p.hn} мм`, `Крыша: ${n1(q.base.a)}×${n1(q.base.b)} мм по низу, высота ${p.hr} мм, четырёхскатная`, 'Стойки: 4 полосы 25 мм, в расчёт включены']);
+  },
+  build(p) {
+    const q = this.geoms(p), g = new THREE.Group(), hx2 = q.base.a / 2, hy2 = q.base.b / 2, tx = q.top.a / 2, ty = q.top.b / 2;
+    put(g, q.neckT, { flat: true }); put(g, q.roof, { flat: true }); put(g, capGeom(profilePts(q.top, q.zb + p.hr)), { flat: true, edges: false });
+    [[1, 1], [1, -1], [-1, 1], [-1, -1]].forEach(([sx, sy]) => {
+      const x = sx * p.a / 2, y = sy * p.b / 2, k = Math.min((hx2 - Math.abs(x)) / (hx2 - tx), (hy2 - Math.abs(y)) / (hy2 - ty));
+      g.add(rod(V(x, y, p.hn), V(x, y, q.zb + p.hr * Math.max(0, Math.min(1, k))), 4));
+    });
+    return g;
+  },
+});
+
+/* Колпак-жалюзи круглый: патрубок, корпус из наклонных ламелей (скат вниз-наружу), сверху крышка-конус */
+def({
+  id: 'louver', name: 'Колпак-жалюзи', up: true,
+  fields: [numF('D', 'Диаметр патрубка D, мм', 315), numF('hs', 'Длина патрубка, мм', 100, 0), numF('Dc', 'Диаметр колпака, мм', 450), numF('nl', 'Число ламелей, шт.', 7, 2), numF('pt', 'Шаг ламелей, мм', 45, 15)],
+  label: p => `Колпак-жалюзи Ø${p.D}, колпак Ø${p.Dc}, ламелей ${p.nl}`,
+  calc(p) {
+    const frus = (d1, d2, h) => PI * (d1 + d2) / 2 * Math.hypot(h, (d2 - d1) / 2), Rin = p.Dc - 24, Rout = p.Dc + 24, hb = p.nl * p.pt + 10, hl = p.Dc * 0.18;
+    const a = m2(PI * p.D * p.hs + p.nl * frus(Rin, Rout, p.pt * 0.9) + frus(p.Dc + 60, 0, hl) + PI * Rin * hb + PI * Rin * Rin / 4);
+    return res(a, wt(a, p.t), [`Патрубок Ø${p.D} × ${p.hs} мм`, `Ламели: ${p.nl} шт., шаг ${p.pt} мм, скат вниз-наружу`, `Внутренний корпус Ø${n1(p.Dc - 24)} × ${n1(hb)} мм, крышка-конус Ø${p.Dc + 60}`]);
+  },
+  build(p) {
+    const g = new THREE.Group(), rd = d => ({ t: 'round', d }), hb = p.nl * p.pt + 10, z0 = p.hs;
+    put(g, tube(rd(p.D), 0, p.hs)); if (p.hs > SET.zig) zig(g, p.D / 2, SET.zig);
+    put(g, tube(rd(p.Dc - 24), z0, z0 + hb), { color: COL.dark });
+    for (let i = 0; i < p.nl; i++) { const zt = z0 + 10 + (i + 1) * p.pt; cone(g, (p.Dc - 24) / 2, zt, (p.Dc + 24) / 2, zt - p.pt * 0.9); }
+    cone(g, (p.Dc + 60) / 2, z0 + hb, 0, z0 + hb + p.Dc * 0.18);
+    return g;
+  },
+});
+
 /* 16. Фильтр-бокс */
 const wideDoor = (b, door) => (door === 'wide') === (b.a >= b.b) ? 'y' : 'x';   // нормаль к стенке с дверцей
 def({
