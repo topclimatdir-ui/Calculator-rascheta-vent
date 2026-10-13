@@ -542,6 +542,8 @@ def({
     return {
       hs, D1: r(2.0), D2: r(1.7),
       zk: hs + r(0.35),      // низ корпуса (снизу открыт, держится на лапках)
+      zl: hs + r(0.35) - r(0.27),   // низ лапок корпуса: отсюда патрубок расширяется конусом
+      Dd: r(1.25),           // диаметр трубы вверху конуса
       zp: hs + r(0.90),      // верх внутренней трубы (начало воронки)
       zf: hs + r(1.20),      // воронка упирается в стенку корпуса
       zc: hs + r(1.40),      // низ воротника зонта
@@ -554,17 +556,17 @@ def({
   calc(p) {
     const q = this.parts(p), D = p.D;
     const frus = (d1, d2, h) => PI * (d1 + d2) / 2 * Math.hypot(h, (d2 - d1) / 2);
-    const pipe = PI * D * q.zp, funnel = frus(D, q.D1, q.zf - q.zp), body = PI * q.D1 * (q.zt - q.zk);
+    const pipe = PI * D * q.zl + frus(D, q.Dd, q.zp - q.zl), funnel = frus(q.Dd, q.D1, q.zf - q.zp), body = PI * q.D1 * (q.zt - q.zk);
     const umb = frus(0, q.D2, q.za - q.zu) + PI * q.D2 * (q.zu - q.zc), legs = 8 * 30 * 0.48 * D;   // 4 лапки зонта + 4 лапки корпуса, полоса 30 мм
     const a = m2(pipe + funnel + body + umb + legs);
-    return res(a, wt(a, p.t), [`Патрубок и внутренняя труба: ${n1(PI * D)} × ${n1(q.zp)} мм (патрубок снизу ${n1(q.hs)} мм)`,
+    return res(a, wt(a, p.t), [`Патрубок ${n1(PI * D)} × ${n1(q.zl)} мм, выше расширяется конусом до Ø${n1(q.Dd)} (патрубок снизу ${n1(q.hs)} мм)`,
       `Корпус: Ø${n1(q.D1)} × ${n1(q.zt - q.zk)} мм, по валику у каждого края, снизу открыт, внутри воронка диффузора`,
       `Зонт Ø${n1(q.D2)} мм на 4 лапках, ещё 4 лапки держат корпус (полоса 30 мм)`, `Общая высота H = ${n1(q.zt)} мм (пропорции от D по чертежу)`]);
   },
   build(p) {
     const q = this.parts(p), g = new THREE.Group(), D = p.D, rd = d => ({ t: 'round', d });
-    put(g, tube(rd(D), 0, q.zp)); if (q.hs > SET.zig) zig(g, D / 2, SET.zig);            // патрубок + внутренняя труба
-    cone(g, D / 2, q.zp, q.D1 / 2 - 8, q.zf);                                               // воронка диффузора (кромка чуть внутри стенки)
+    put(g, tube(rd(D), 0, q.zl)); cone(g, D / 2, q.zl, q.Dd / 2, q.zp); if (q.hs > SET.zig) zig(g, D / 2, SET.zig);            // патрубок + внутренняя труба
+    cone(g, q.Dd / 2, q.zp, q.D1 / 2 - 8, q.zf);                                               // воронка диффузора (кромка чуть внутри стенки)
     put(g, tube(rd(q.D1), q.zk, q.zt));                                                     // корпус
     [0.14].forEach(k => bead(g, q.D1 / 2, q.zt - k * D, q.rr));                            // валик у верхней кромки
     [0.12].forEach(k => bead(g, q.D1 / 2, q.zk + k * D, q.rr));                            // …и у нижней
@@ -579,7 +581,7 @@ def({
     bead(g, q.D1 / 2, q.zt - q.rr * 0.5, q.rr * 1.3);                                       // закатанная кромка
     put(g, tube(rd(q.D2), q.zc, q.zu));                                                     // воротник зонта
     cone(g, q.D2 / 2, q.zu, 0, q.za);                                                       // зонт
-    const rb = Math.max(2.5, D * 0.01), rA = q.D2 / 2 - rb * 1.5, rC = D / 2 + 0.04 * D;
+    const rb = Math.max(2.5, D * 0.01), rA = q.D2 / 2 - rb * 1.5, rC = q.Dd / 2 + 0.03 * D;
     for (let i = 0; i < 4; i++) {                                                           // S-образные лапки зонта
       const a = PI / 4 + PI / 2 * i, P = (r, z) => V(r * Math.cos(a), r * Math.sin(a), z);
       const pts = [P(rA, q.zu - 0.02 * D), P(rA, q.zu - 0.14 * D), P(rC, q.zp + 0.09 * D), P(rC, q.zp + 0.01 * D)];
