@@ -656,9 +656,9 @@ def({
   },
   calc(p) {
     const q = this.parts(p), frus = (d1, d2, h) => PI * (d1 + d2) / 2 * Math.hypot(h, (d2 - d1) / 2);
-    const mesh = m2(PI * p.d * p.d / 4), a = m2(PI * p.D * q.hs + frus(p.D, q.Dm, q.h1) + frus(q.Dm, p.d, q.h2));
+    const mesh = m2(PI * p.d * p.d / 4), rf = 0.32 * q.Dm, a = m2(PI * p.D * q.hs + frus(p.D, q.Dm, q.h1) + frus(q.Dm, p.d, q.h2) + frus(16, 2 * rf, q.h1 * 0.45));
     return res(a, wt(a, p.t) + mesh * SET.meshW + 0.1, [`Патрубок Ø${p.D} × ${n1(q.hs)} мм`, `Нижний конус Ø${p.D}→Ø${n1(q.Dm)}, высота ${n1(q.h1)} мм`, `Верхний конус Ø${n1(q.Dm)}→Ø${p.d}, высота ${n1(q.h2)} мм`,
-      `Сетка на выходе Ø${p.d}: ${(mesh).toFixed(3)} м², дренажная трубка; вес сетки и трубки включён`]);
+      `Сетка на выходе Ø${p.d}: ${(mesh).toFixed(3)} м²; внутри воронка слива и дренажная трубка; вес сетки и трубки включён`]);
   },
   build(p) {
     const q = this.parts(p), g = new THREE.Group(), rd = d => ({ t: 'round', d });
@@ -667,8 +667,11 @@ def({
     bead(g, q.Dm / 2, q.z1, Math.min(SET.zigH * 0.6, p.D * 0.02));
     g.add(gridLines(rd(p.d), () => p.L, p.d / 14));
     bead(g, p.D / 2, q.hs - 15, Math.min(SET.zigH * 0.8, p.D * 0.02));   // бандаж на патрубке
-    const r0 = p.D / 2 + (q.Dm - p.D) / 2 * 0.1, z0 = q.hs + q.h1 * 0.1, e = V(r0 + 60, 0, z0 - 25);   // дренаж
-    g.add(rod(V(r0, 0, z0), e, 8, 0xd9d2c5));
+    const rw = z => p.D / 2 + (q.Dm - p.D) / 2 * (z - q.hs) / q.h1, rf = 0.32 * q.Dm, zb = q.hs + q.h1 * 0.35, zr = q.hs + q.h1 * 0.8;   // воронка слива внутри
+    cone(g, 8, zb, rf, zr);
+    for (let i = 0; i < 3; i++) { const a = 2 * PI * i / 3 + 0.6; g.add(rod(V(rf * Math.cos(a), rf * Math.sin(a), zr), V((rw(zr) - 3) * Math.cos(a), (rw(zr) - 3) * Math.sin(a), zr), 3)); }
+    const zw = q.hs + q.h1 * 0.12, pts = [V(0, 0, zb), V(0, 0, zb - 20), V(rw(zw) - 2, 0, zw), V(rw(zw) + 55, 0, zw - 22)];   // дренаж из воронки наружу
+    for (let j = 0; j < 3; j++) g.add(rod(pts[j], pts[j + 1], 5, 0xd9d2c5));
     return g;
   },
 });
