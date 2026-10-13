@@ -67,12 +67,12 @@ function frame(root, cam) {
   const c = b.getCenter(new THREE.Vector3()), sph = b.getBoundingSphere(new THREE.Sphere());
   root.position.sub(c);
   const dist = sph.radius / Math.sin(cam.fov * PI / 360) * 1.12;
-  cam.position.set(0.8, 0.6, 1).normalize().multiplyScalar(dist);
+  cam.position.set(...(root.userData.cam || [0.8, 0.6, 1])).normalize().multiplyScalar(dist);
   cam.near = dist / 100; cam.far = dist * 20; cam.updateProjectionMatrix(); cam.lookAt(0, 0, 0);
   return dist;
 }
 function buildModel(type, p) {
-  const m = type.build(p), root = new THREE.Group();
+  const m = type.build(p), root = new THREE.Group(); root.userData.cam = type.cam;
   if (type.up) m.rotation.x = -PI / 2;
   root.add(m); root.userData.m = m; root.userData.dims = type.annot ? type.annot(p) : [];
   return root;
@@ -151,13 +151,13 @@ const GROUPS = [
     ['clamp'], ['mushroom'], ['tsagi'], ['exhaust45'], ['nozzle'], ['silround'], ['flex', { shape: 'round', fg: 'none', L: 75, D: 200 }, 'Гибкая вставка'], ['filterbox', { cs: 'round' }, 'Фильтр-бокс (круглое присоединение)']] },
   { title: 'Прямоугольное сечение', items: [['box'], ['elbow', { shape: 'rect', ends: 100, ang: 90, ri: 0 }, 'Отвод'], ['transition', { s1: 'rect', s2: 'rect', L: 250 }, 'Переход'],
     ['tee', { s1: 'rect', s2: 'rect' }, 'Тройник / врезка / крестовина'], ['tap', { shape: 'rect', end: 'flat', ob: 20 }, 'Врезка прямоугольная ровная'], ['tap', { shape: 'rect', end: 'saddle' }, 'Врезка прямоугольная седло'], ['throttle', { shape: 'rect', fg: 'S20' }, 'Дроссель-клапан'], ['throttle', { shape: 'rect', fg: 'S20', drive: 'act' }, 'Клапан под привод'], ['checkv', { shape: 'rect' }], ['cap', { shape: 'rect' }], ['mesh', { shape: 'rect' }],
-    ['silrect', { fg: 'S20' }, 'Шумоглушитель прямоугольный'], ['filterbox', { cs: 'rect', fg: 'S20' }, 'Фильтр-бокс (прямоуг. присоединение)'], ['cassette'], ['pocketf'], ['flex', { shape: 'rect' }, 'Гибкая вставка (фланец S20)'], ['hood']] },
+    ['silrect', { fg: 'S20' }, 'Шумоглушитель прямоугольный'], ['filterbox', { cs: 'rect', fg: 'S20' }, 'Фильтр-бокс (прямоуг. присоединение)'], ['cassette'], ['pocketf'], ['flex', { shape: 'rect' }, 'Гибкая вставка (фланец S20)'], ['hood', { kind: 'wall' }, 'Зонт вытяжной пристенный'], ['hood', { kind: 'island' }, 'Зонт вытяжной островной']] },
   { title: 'Комбинированные: круг и прямоугольник', items: [['transition', { s1: 'round', s2: 'rect', L: 250 }, 'Переход круг → прямоугольник'],
     ['transition', { s1: 'rect', s2: 'round', L: 250 }, 'Переход прямоугольник → круг'], ['tee', { s1: 'rect', s2: 'round' }, 'Тройник: магистраль прямоуг., ответвление круглое'],
     ['tee', { s1: 'round', s2: 'rect' }, 'Тройник: магистраль круглая, ответвление прямоуг.']] },
 ];
 const ENTRIES = []; GROUPS.forEach((g, gi) => g.items.forEach(([id, preset, label]) => ENTRIES.push({ gi, id, preset: preset || {}, label: label || TYPES.find(t => t.id === id).name })));
-cur.entry = 0; cur.lock = ['shape', 's1', 's2', 'cs', 'end', 'drive'].filter(k => k in ENTRIES[0].preset);
+cur.entry = 0; cur.lock = ['shape', 's1', 's2', 'cs', 'end', 'drive', 'kind'].filter(k => k in ENTRIES[0].preset);
 function renderTypes() {
   $('#types').innerHTML = GROUPS.map((g, gi) => `<div class="tg"><h3>${g.title}</h3><div class="tb">` +
     ENTRIES.map((e, i) => e.gi === gi ? `<button type="button" data-i="${i}" class="${i === cur.entry ? 'on' : ''}">${esc(e.label)}</button>` : '').join('') + '</div></div>').join('');
@@ -218,7 +218,7 @@ function rebuild() {
 }
 function setEntry(i) {
   const e = ENTRIES[i]; cur.entry = i; cur.type = TYPES.find(t => t.id === e.id);
-  cur.p = Object.assign(defaultsOf(cur.type), e.preset); cur.lock = ['shape', 's1', 's2', 'cs', 'end', 'drive'].filter(k => k in e.preset); cur.editId = null;
+  cur.p = Object.assign(defaultsOf(cur.type), e.preset); cur.lock = ['shape', 's1', 's2', 'cs', 'end', 'drive', 'kind'].filter(k => k in e.preset); cur.editId = null;
   $('#add').textContent = '＋ Добавить в КП'; $('#cancel').hidden = true; $('#price').value = '';
   renderTypes(); renderForm(); update();
 }

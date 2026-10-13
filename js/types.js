@@ -627,7 +627,7 @@ def({
 /* 8. Выброс 45° с сеткой */
 def({
   id: 'exhaust45', name: 'Выброс 45° с сеткой', up: true,
-  fields: [numF('D', 'Диаметр D, мм', 315), numF('H', 'Высота короткой стороны H, мм', 250)],
+  fields: [numF('D', 'Диаметр D, мм', 315), numF('H', 'Высота короткой (нижней) стороны H, мм', 100)],
   label: p => `Выброс 45° с сеткой Ø${p.D}, H=${p.H}`,
   calc(p) {
     const a = m2(PI * p.D * (p.H + p.D / 2)), mesh = m2(PI * p.D * p.D / 4 * Math.SQRT2);
@@ -819,24 +819,47 @@ def({
 /* 15. Зонт вытяжной кухонный */
 def({
   id: 'hood', name: 'Зонт вытяжной кухонный', up: true,
-  fields: [numF('A', 'Ширина A (по низу), мм', 1000), numF('B', 'Глубина B (по низу), мм', 800), numF('H', 'Высота зонта H, мм', 350),
+  fields: [selF('kind', 'Вид зонта', [['wall', 'Пристенный'], ['island', 'Островной']], 'wall'),
+    numF('A', 'Ширина A (по низу), мм', 1000), numF('B', 'Глубина B (по низу), мм', 800), numF('H', 'Высота зонта H, мм', 350),
     selF('ns', 'Патрубок', SH, 'round'),
     numF('D', 'Диаметр патрубка, мм', 315, 20, p => p.ns === 'round'),
     numF('a', 'Патрубок A, мм', 400, 20, p => p.ns === 'rect'), numF('b', 'Патрубок B, мм', 300, 20, p => p.ns === 'rect'),
-    numF('hn', 'Высота патрубка, мм', 120), numF('hs', 'Борт по низу, мм', 30)],
-  label: p => `Зонт вытяжной ${p.A}×${p.B}×${p.H}, патрубок ${p.ns === 'round' ? 'Ø' + p.D : p.a + '×' + p.b}`,
-  geoms(p) {
-    const bot = { t: 'rect', a: p.A, b: p.B }, neck = p.ns === 'round' ? { t: 'round', d: p.D } : { t: 'rect', a: p.a, b: p.b };
-    return { bot, neck, skirt: tube(bot, 0, p.hs), body: loft(bot, p.hs, neck, p.hs + p.H), neckT: tube(neck, p.hs + p.H, p.hs + p.H + p.hn) };
+    numF('hn', 'Высота патрубка, мм', 120), numF('hs', 'Борт по низу, мм', 30),
+    selF('flt', 'Жироулавливающие фильтры', [['yes', 'Показать (отдельной позицией)'], ['no', 'Нет']], 'yes')],
+  label: p => `Зонт вытяжной ${p.kind === 'wall' ? 'пристенный' : 'островной'} ${p.A}×${p.B}×${p.H}, патрубок ${p.ns === 'round' ? 'Ø' + p.D : p.a + '×' + p.b}`,
+  dimsOf(p) {   // пристенный: задняя стенка вертикальная (y = +B/2), остальные грани наклонные; островной: все четыре грани наклонные
+    const wall = p.kind === 'wall', neck = p.ns === 'round' ? { t: 'round', d: p.D } : { t: 'rect', a: p.a, b: p.b }, nw = neck.t === 'round' ? neck.d : neck.a, nb = neck.t === 'round' ? neck.d : neck.b;
+    const ia = Math.min(0.45 * p.H, 0.22 * p.A), a2 = Math.max(p.A - 2 * ia, nw + 60);
+    const b2 = wall ? Math.max(p.B * 0.5, nb + 60) : Math.max(p.B - 2 * Math.min(0.45 * p.H, 0.22 * p.B), nb + 60), oy = wall ? p.B / 2 - b2 / 2 : 0;
+    return { wall, neck, bot: { t: 'rect', a: p.A, b: p.B }, top: { t: 'rect', a: a2, b: b2 }, oy, zt: p.hs + p.H };
   },
+  geoms(p) {
+    const d = this.dimsOf(p);
+    return Object.assign(d, { skirt: tube(d.bot, 0, p.hs), body: loft(d.bot, p.hs, d.top, d.zt, 0, d.oy), cap: capGeom(profilePts(d.top, d.zt, 0, d.oy)), neckT: tube(d.neck, d.zt, d.zt + p.hn) });
+  },
+  nFilters(p) { return Math.ceil((p.A - 30) / 500) * (p.kind === 'wall' ? 1 : 2); },
   calc(p) {
-    const q = this.geoms(p), a = m2(geomArea(q.skirt) + geomArea(q.body) + geomArea(q.neckT));
-    return res(a, wt(a, p.t), [`Борт: ${n1(perim(q.bot))} × ${p.hs} мм`, `Корпус: из ${p.A}×${p.B} в ${dimStr(q.neck)}, высота ${p.H} мм`,
-      `Патрубок: ${n1(perim(q.neck))} × ${p.hn} мм`, 'Жировые фильтры в расчёт не включены']);
+    const q = this.geoms(p), a = m2(geomArea(q.skirt) + geomArea(q.body) + (areaCS(q.top) - areaCS(q.neck)) + geomArea(q.neckT));
+    return res(a, wt(a, p.t), [`Борт: ${n1(perim(q.bot))} × ${p.hs} мм`, `Корпус: из ${p.A}×${p.B} в ${n1(q.top.a)}×${n1(q.top.b)}, высота ${p.H} мм, ${q.wall ? 'задняя стенка вертикальная' : 'все грани наклонные'}`,
+      `Верх: ${n1(q.top.a)}×${n1(q.top.b)} с отверстием под патрубок ${dimStr(q.neck)}`, `Патрубок: ${n1(perim(q.neck))} × ${p.hn} мм`,
+      `Жироулавливающие фильтры: ${this.nFilters(p)} шт. (500 мм), в расчёт не включены`]);
   },
   build(p) {
     const q = this.geoms(p), g = new THREE.Group();
-    put(g, q.skirt, { flat: true }); put(g, q.body, { flat: true }); put(g, q.neckT, { flat: q.neck.t === 'rect' }); if (q.neck.t === 'round' && p.hn > SET.zig) zig(g, q.neck.d / 2, p.hs + p.H + p.hn - SET.zig);
+    put(g, q.skirt, { flat: true }); put(g, q.body, { flat: true }); put(g, q.cap, { flat: true });
+    const n = new THREE.Group(); n.position.set(0, q.oy, 0); g.add(n);
+    put(n, q.neckT, { flat: q.neck.t === 'rect' }); if (q.neck.t === 'round' && p.hn > SET.zig) zig(n, q.neck.d / 2, q.zt + p.hn - SET.zig);
+    if (p.flt === 'yes') {   // блок жироулавливающих фильтров в нижней части наклонной грани: пристенный — спереди, островной — с обеих длинных сторон
+      const ia = (p.A - q.top.a) / 2, hw = z => p.A / 2 - ia * (z - p.hs) / p.H - 14, dark = VIEW.style === 'draw' ? 0x111111 : 0x2d3b4a;
+      const slope = sg => sg < 0 ? (q.oy - q.top.b / 2 + p.B / 2) : (p.B / 2 - (q.oy + q.top.b / 2)), yAt = (sg, z, o = 1.5) => sg * (p.B / 2) - sg * (z - p.hs) / p.H * slope(sg) + sg * o;
+      (q.wall ? [-1] : [-1, 1]).forEach(sg => {
+        const z0 = p.hs + 12, z1 = p.hs + 0.55 * p.H, w0 = hw(z0), w1 = hw(z1);
+        const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute([-w0, yAt(sg, z0), z0, w0, yAt(sg, z0), z0, w1, yAt(sg, z1), z1, -w1, yAt(sg, z1), z1], 3)); geo.setIndex([0, 1, 2, 0, 2, 3]);
+        g.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: VIEW.style === 'draw' ? 0xdfe4ea : 0x7d8a9a, side: THREE.DoubleSide })));
+        const nl = Math.max(8, Math.floor(2 * w0 / 22)), pos = []; for (let i = 0; i <= nl; i++) { const u = i / nl; pos.push(-w0 + 2 * w0 * u, yAt(sg, z0, 4), z0, -w1 + 2 * w1 * u, yAt(sg, z1, 4), z1); }
+        const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.add(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: dark })));
+      });
+    }
     return g;
   },
 });

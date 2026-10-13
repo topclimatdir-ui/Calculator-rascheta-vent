@@ -36,7 +36,7 @@ const PLACE = {
     const h = p.L / 2 + (p.fl || 0); return [{ s: c, m: at(0, 0, -h, PI) }, { s: c, m: at(0, 0, h, 0) }];
   },
   tap(p) { const s = shapeOf(p); return s.t === 'rect' ? [{ s, m: at(0, 0, p.Lb, 0) }] : []; },
-  hood(p) { return p.ns === 'rect' ? [{ s: { t: 'rect', a: p.a, b: p.b }, m: at(0, 0, p.hs + p.H + p.hn, 0) }] : []; },
+  hood(p) { return p.ns === 'rect' ? [{ s: { t: 'rect', a: p.a, b: p.b }, m: at(0, TYPES.find(t => t.id === 'hood').dimsOf(p).oy, p.hs + p.H + p.hn, 0) }] : []; },
   flex(p) { const s = shapeOf(p); return s.t === 'rect' ? [{ s, m: at(0, 0, -p.L / 2, PI) }, { s, m: at(0, 0, p.L / 2, 0) }] : []; },
 };
 const FL_SHOW = {

@@ -105,9 +105,9 @@ const ANN = {
     return out;
   },
   hood(p) {
-    const k = kk(p.A, p.B) * 0.8, top = p.hs + p.H;
+    const q = TYPES.find(t => t.id === 'hood').dimsOf(p), k = kk(p.A, p.B) * 0.8, top = q.zt + p.hn;
     return [lin(V(-p.A / 2, -p.B / 2, 0), V(p.A / 2, -p.B / 2, 0), V(0, -k, 0), 'A=' + p.A), lin(V(p.A / 2, -p.B / 2, 0), V(p.A / 2, p.B / 2, 0), V(k, 0, 0), 'B=' + p.B),
-      lin(V(p.A / 2, p.B / 2, 0), V(p.A / 2, p.B / 2, top + p.hn), V(k, 0, 0), 'H=' + (top + p.hn))];
+      lin(V(p.A / 2, p.B / 2, 0), V(p.A / 2, p.B / 2, top), V(k, 0, 0), 'H=' + top), ...sec(q.neck, top, k * 0.8, 0, q.oy)];
   },
 };
 ANN.filterbox = function (p) {
