@@ -647,11 +647,11 @@ def({
    сбоку трубка дренажа. L — полная высота от низа патрубка. */
 def({
   id: 'nozzle', name: 'Реактивное сопло', up: true,
-  fields: [numF('D', 'Диаметр патрубка D, мм', 315), numF('hs', 'Длина патрубка, мм', 100, 0), numF('Dm', 'Диаметр в самом широком месте, мм', 560),
-    numF('d', 'Диаметр выхода d (с сеткой), мм', 450), numF('L', 'Полная высота L, мм', 600)],
+  fields: [numF('D', 'Диаметр патрубка D, мм', 315), numF('hs', 'Длина патрубка, мм', 100, 0), numF('Dm', 'Диаметр в самом широком месте, мм', 600),
+    numF('d', 'Диаметр выхода d (с сеткой), мм', 500), numF('L', 'Полная высота L, мм', 650)],
   label: p => `Реактивное сопло Ø${p.D}→Ø${p.d}, L=${p.L}`,
   parts(p) {
-    const hs = p.hs === undefined || p.hs === '' ? 100 : Math.max(0, +p.hs || 0), Dm = +p.Dm || Math.round(1.8 * p.D), rest = Math.max(10, p.L - hs), h1 = Math.round(rest * 0.3);
+    const hs = p.hs === undefined || p.hs === '' ? 100 : Math.max(0, +p.hs || 0), Dm = +p.Dm || Math.round(1.8 * p.D), rest = Math.max(10, p.L - hs), h1 = Math.round(rest * 0.45);
     return { hs, Dm, z1: hs + h1, h1, h2: rest - h1 };
   },
   calc(p) {
@@ -666,7 +666,8 @@ def({
     cone(g, p.D / 2, q.hs, q.Dm / 2, q.z1); cone(g, q.Dm / 2, q.z1, p.d / 2, p.L);
     bead(g, q.Dm / 2, q.z1, Math.min(SET.zigH * 0.6, p.D * 0.02));
     g.add(gridLines(rd(p.d), () => p.L, p.d / 14));
-    const r0 = p.D / 2 + (q.Dm - p.D) / 2 * 0.45, z0 = q.hs + q.h1 * 0.45, e = V(r0 + 110, 0, z0 - 70);   // дренаж
+    bead(g, p.D / 2, q.hs - 15, Math.min(SET.zigH * 0.8, p.D * 0.02));   // бандаж на патрубке
+    const r0 = p.D / 2 + (q.Dm - p.D) / 2 * 0.1, z0 = q.hs + q.h1 * 0.1, e = V(r0 + 60, 0, z0 - 25);   // дренаж
     g.add(rod(V(r0, 0, z0), e, 8, 0xd9d2c5));
     return g;
   },
