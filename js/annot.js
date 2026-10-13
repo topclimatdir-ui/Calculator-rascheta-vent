@@ -79,9 +79,11 @@ const ANN = {
     return [lin(V(-p.D / 2, 0, 0), V(p.D / 2, 0, 0), V(0, -k, 0), 'Ø' + p.D), lin(V(p.D / 2, 0, 0), V(p.D / 2, 0, p.H + p.D), V(k, 0, 0), 'H=' + p.H + ' … ' + (p.H + p.D))];
   },
   nozzle(p) {
-    const k = kk(p.D);
-    return [lin(V(-p.D / 2, 0, 0), V(p.D / 2, 0, 0), V(0, -k, 0), 'Ø' + p.D), lin(V(-p.d / 2, 0, p.L), V(p.d / 2, 0, p.L), V(0, -k, 0), 'Ø' + p.d),
-      lin(V(p.D / 2, 0, 0), V(p.D / 2, 0, p.L), V(k, 0, 0), 'L=' + p.L)];
+    const q = TYPES.find(t => t.id === 'nozzle').parts(p), k = kk(p.D, q.Dm), R = Math.max(q.Dm, p.d) / 2;
+    const out = [lin(V(-p.D / 2, 0, 0), V(p.D / 2, 0, 0), V(0, -k, 0), 'Ø' + p.D), lin(V(-q.Dm / 2, 0, q.z1), V(q.Dm / 2, 0, q.z1), V(0, -k, 0), 'Ø' + n1(q.Dm)),
+      lin(V(-p.d / 2, 0, p.L), V(p.d / 2, 0, p.L), V(0, -k, 0), 'Ø' + p.d), lin(V(-R, 0, 0), V(-R, 0, p.L), V(-k, 0, 0), 'H=' + p.L)];
+    if (q.hs > 0) out.push(lin(V(R, 0, 0), V(R, 0, q.hs), V(k, 0, 0), String(q.hs)));
+    return out;
   },
   cap(p) {
     const s = shapeOf(p), k = kk(hx(s) * 2, hy(s) * 2);

@@ -643,18 +643,33 @@ def({
   },
 });
 
-/* 9. Реактивное сопло */
+/* 9. Реактивное сопло (факельный выброс): патрубок D, нижний конус до самого широкого места Dm, верхний конус сужается к выходу d с сеткой,
+   сбоку трубка дренажа. L — полная высота от низа патрубка. */
 def({
-  id: 'nozzle', name: 'Реактивное сопло',
-  fields: [numF('D', 'Диаметр входа D, мм', 315), numF('d', 'Диаметр выхода d, мм', 160), numF('L', 'Длина L, мм', 500)],
+  id: 'nozzle', name: 'Реактивное сопло', up: true,
+  fields: [numF('D', 'Диаметр патрубка D, мм', 315), numF('hs', 'Длина патрубка, мм', 100, 0), numF('Dm', 'Диаметр в самом широком месте, мм', 560),
+    numF('d', 'Диаметр выхода d (с сеткой), мм', 450), numF('L', 'Полная высота L, мм', 600)],
   label: p => `Реактивное сопло Ø${p.D}→Ø${p.d}, L=${p.L}`,
-  calc(p) {
-    const sl = Math.sqrt(p.L * p.L + ((p.D - p.d) / 2) ** 2), a = m2(PI * (p.D + p.d) / 2 * sl);
-    return res(a, wt(a, p.t), [conicDev(p.D, p.d, p.L), `Образующая ${n1(sl)} мм`]);
+  parts(p) {
+    const hs = p.hs === undefined || p.hs === '' ? 100 : Math.max(0, +p.hs || 0), Dm = +p.Dm || Math.round(1.8 * p.D), rest = Math.max(10, p.L - hs), h1 = Math.round(rest * 0.3);
+    return { hs, Dm, z1: hs + h1, h1, h2: rest - h1 };
   },
-  build(p) { const g = new THREE.Group(); put(g, loft({ t: 'round', d: p.D }, 0, { t: 'round', d: p.d }, p.L));
-    if (SET.zig > 0 && p.L > 2 * SET.zig) { const rz = z => p.D / 2 + (p.d / 2 - p.D / 2) * z / p.L; zig(g, rz(SET.zig), SET.zig); zig(g, rz(p.L - SET.zig), p.L - SET.zig); }
-    return g; },
+  calc(p) {
+    const q = this.parts(p), frus = (d1, d2, h) => PI * (d1 + d2) / 2 * Math.hypot(h, (d2 - d1) / 2);
+    const mesh = m2(PI * p.d * p.d / 4), a = m2(PI * p.D * q.hs + frus(p.D, q.Dm, q.h1) + frus(q.Dm, p.d, q.h2));
+    return res(a, wt(a, p.t) + mesh * SET.meshW + 0.1, [`Патрубок Ø${p.D} × ${n1(q.hs)} мм`, `Нижний конус Ø${p.D}→Ø${n1(q.Dm)}, высота ${n1(q.h1)} мм`, `Верхний конус Ø${n1(q.Dm)}→Ø${p.d}, высота ${n1(q.h2)} мм`,
+      `Сетка на выходе Ø${p.d}: ${(mesh).toFixed(3)} м², дренажная трубка; вес сетки и трубки включён`]);
+  },
+  build(p) {
+    const q = this.parts(p), g = new THREE.Group(), rd = d => ({ t: 'round', d });
+    put(g, tube(rd(p.D), 0, q.hs)); if (q.hs > SET.zig) zig(g, p.D / 2, SET.zig);
+    cone(g, p.D / 2, q.hs, q.Dm / 2, q.z1); cone(g, q.Dm / 2, q.z1, p.d / 2, p.L);
+    bead(g, q.Dm / 2, q.z1, Math.min(SET.zigH * 0.6, p.D * 0.02));
+    g.add(gridLines(rd(p.d), () => p.L, p.d / 14));
+    const r0 = p.D / 2 + (q.Dm - p.D) / 2 * 0.45, z0 = q.hs + q.h1 * 0.45, e = V(r0 + 110, 0, z0 - 70);   // дренаж
+    g.add(rod(V(r0, 0, z0), e, 8, 0xd9d2c5));
+    return g;
+  },
 });
 
 /* 10. Заглушка */
