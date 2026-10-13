@@ -145,7 +145,6 @@ VIEW.style = 'metal';
 const cur = { type: TYPES.find(t => t.id === 'pipe'), p: defaultsOf(TYPES.find(t => t.id === 'pipe')), editId: null };
 let timer;
 
-/* порядок в каждом разделе: воздуховод → фасонные части → ответвления → клапаны → заглушки и сетки → комплектующие → шумоглушение и фильтры → выбросы */
 const GROUPS = [
   { title: 'Круглое сечение', items: [['pipe'], ['snv'], ['nipple'], ['elbow', { shape: 'round', ang: 45 }, 'Отвод'], ['transition', { s1: 'round', s2: 'round', L: 250 }, 'Переход'],
     ['tee', { s1: 'round', s2: 'round' }, 'Тройник / врезка / крестовина'], ['tap', { shape: 'round', end: 'flat' }, 'Врезка круглая ровная'], ['tap', { shape: 'round', end: 'saddle' }, 'Врезка круглая в трубу'],
@@ -163,7 +162,9 @@ const GROUPS = [
     ['tee', { s1: 'round', s2: 'rect' }, 'Тройник: магистраль круглая, ответвление прямоуг.']] },
   { title: 'Зонты', items: [['hood', { kind: 'wall' }, 'Вытяжной пристенный'], ['hood', { kind: 'island' }, 'Вытяжной островной']] },
 ];
-const ENTRIES = []; GROUPS.forEach((g, gi) => g.items.forEach(([id, preset, label]) => ENTRIES.push({ gi, id, preset: preset || {}, label: label || TYPES.find(t => t.id === id).name })));
+const ENTRIES = [];   // внутри каждого раздела изделия идут по алфавиту
+GROUPS.forEach((g, gi) => g.items.map(([id, preset, label]) => ({ gi, id, preset: preset || {}, label: label || TYPES.find(t => t.id === id).name }))
+  .sort((a, b) => a.label.localeCompare(b.label, 'ru')).forEach(e => ENTRIES.push(e)));
 cur.entry = 0; cur.lock = ['shape', 's1', 's2', 'cs', 'end', 'drive', 'kind'].filter(k => k in ENTRIES[0].preset);
 function renderTypes() {
   $('#types').innerHTML = GROUPS.map((g, gi) => `<div class="tg"><h3>${g.title}</h3><div class="tb">` +
