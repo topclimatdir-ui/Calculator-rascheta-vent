@@ -372,7 +372,7 @@ function teeBranch(p, a) {
 function teeHole(p, a, lift) {   // набор колец от края отверстия к центру (на стенке магистрали)
   const s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'), sin = Math.sin(a), cos = Math.cos(a), sg = sin < 0 ? -1 : 1, half = teeHalf(p);
   const d = new THREE.Vector3(sin, 0, cos), xp = new THREE.Vector3(cos, 0, -sin), O = new THREE.Vector3(sg * half, 0, 0);
-  return [1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.02].map(f => profilePts(s2, 0).map(v => {
+  return [1, 0.94, 0.88].map(f => profilePts(s2, 0).map(v => {
     v.x *= f; v.y *= f;
     const xw = s1.t === 'round' ? sg * Math.sqrt(Math.max(0, half * half - v.y * v.y)) : sg * half, t = (xw - O.x - v.x * cos) / sin;
     const q = O.clone().addScaledVector(xp, v.x).add(new THREE.Vector3(0, v.y, 0)).addScaledVector(d, t); q.x += sg * lift; return q;
@@ -386,6 +386,36 @@ function teeHoleMeshes(p, a, lift) {   // вид внутрь магистрал
     out.push(new THREE.Mesh(ringsGeom([rings[k], rings[k + 1]]), mt));
   }
   return out;
+}
+/* стенка магистрали тройника: мелкая сетка с настоящими отверстиями под ответвления (видна полость внутри) */
+function teeWall(p, s, L, angs) {
+  const KK = s.t === 'round' ? 96 : Math.max(24, Math.min(80, Math.ceil(Math.max(s.a, s.b) / 4 / 1))), nz = Math.max(8, Math.min(200, Math.ceil(L / 3)));
+  const ring = [];
+  for (let j = 0; j < 4; j++) for (let i = 0; i < KK; i++) {
+    const u = i / KK;
+    if (s.t === 'round') { const ang = -PI / 4 + PI / 2 * (j + u); ring.push([s.d / 2 * Math.cos(ang), s.d / 2 * Math.sin(ang)]); }
+    else { const a = s.a / 2, b = s.b / 2; ring.push(j === 0 ? [a, -b + 2 * b * u] : j === 1 ? [a - 2 * a * u, b] : j === 2 ? [-a, b - 2 * b * u] : [-a + 2 * a * u, -b]); }
+  }
+  const n = ring.length, pos = [], idx = [];
+  for (let r = 0; r <= nz; r++) ring.forEach(([x, y]) => pos.push(x, y, -L / 2 + L * r / nz));
+  const s2 = shapeOf(p, '2', 's2'), inv = angs.map(a => new THREE.Matrix4().copy(teeFrame(p, a)).invert());
+  const inHole = (x, y, z) => inv.some(m => {
+    const q = new THREE.Vector3(x, y, z).applyMatrix4(m);
+    return s2.t === 'round' ? q.x * q.x + q.y * q.y < (s2.d / 2 * 0.93) ** 2 : Math.abs(q.x) < s2.a / 2 * 0.93 && Math.abs(q.y) < s2.b / 2 * 0.93;
+  });
+  const P = k => [pos[3 * k], pos[3 * k + 1], pos[3 * k + 2]];
+  const tri = (a, b, c) => { const A = P(a), B = P(b), C = P(c); if (!inHole((A[0] + B[0] + C[0]) / 3, (A[1] + B[1] + C[1]) / 3, (A[2] + B[2] + C[2]) / 3)) idx.push(a, b, c); };
+  for (let r = 0; r < nz; r++) for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n, a = r * n + i, b = r * n + j, c = (r + 1) * n + i, d = (r + 1) * n + j; tri(a, b, c); tri(b, d, c);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+  return g;
+}
+function tubeEdges(g, s, L) {   // контур торцов и рёбра прямоугольного сечения (линии по сетке с отверстиями не нужны)
+  const m = new THREE.LineBasicMaterial({ color: VIEW.style === 'draw' ? 0x111111 : COL.edge });
+  [-L / 2, L / 2].forEach(z => g.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(profilePts(s, z)), m)));
+  if (s.t === 'rect') [[1, 1], [1, -1], [-1, 1], [-1, -1]].forEach(([x, y]) => g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([V(x * s.a / 2, y * s.b / 2, -L / 2), V(x * s.a / 2, y * s.b / 2, L / 2)]), m)));
 }
 const teeAngles = p => { const al = Math.min(Math.max(p.ang, 20), 160) * PI / 180; return p.kind === 'cross' ? [al, -al] : [al]; };
 /* длина магистрали: по умолчанию по 80 мм с каждой стороны от места врезки (arm); у старых позиций — прежнее поле L */
@@ -418,7 +448,9 @@ def({
   build(p) {
     const g = new THREE.Group(), s1 = shapeOf(p, '1', 's1'), s2 = shapeOf(p, '2', 's2'), ghost = p.kind === 'saddle';
     const L = teeL(p);
-    put(g, tube(s1, -L / 2, L / 2), { flat: isFlat(s1), opacity: ghost ? 0.22 : 1, edges: !ghost });
+    const wall = teeWall(p, s1, L, teeAngles(p)), flatW = isFlat(s1), ghostO = ghost ? 0.22 : 1;
+    g.add(new THREE.Mesh(wall, mat(COL.steel, { flatShading: flatW, transparent: ghost, opacity: ghostO, depthWrite: !ghost })));
+    if (!ghost) tubeEdges(g, s1, L);
     if (!ghost) zigs(g, s1, -L / 2, L / 2);
     teeAngles(p).forEach(a => {
       const br = teeBranch(p, a); put(g, br.geom, { flat: isFlat(s2) });
