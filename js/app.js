@@ -182,7 +182,7 @@ function numericOk() {
   return cur.type.fields.every(f => (f.show && !f.show(cur.p)) || f.sel || (isFinite(cur.p[f.k]) && cur.p[f.k] >= f.min));
 }
 function rateFor(t) { return +state.set.rate[String(+t)] || 0; }
-const ROUND_ZIG = ['pipe', 'snv', 'elbow', 'transition', 'tee', 'tap', 'throttle', 'checkv', 'cap', 'mesh', 'mushroom', 'tsagi', 'exhaust45', 'nozzle', 'silround', 'hood', 'louver'];
+const ROUND_ZIG = ['pipe', 'elbow', 'transition', 'tee', 'tap', 'throttle', 'checkv', 'cap', 'mesh', 'mushroom', 'tsagi', 'exhaust45', 'nozzle', 'silround', 'hood', 'louver'];
 function compute(type, p) {
   const r = withFlange(type, p, type.calc(p));
   const round = type.fixed ? type.fixed.shape === 'round' : [p.shape, p.s1, p.s2, p.ns, p.cs].includes('round') || ['mushroom', 'tsagi', 'exhaust45', 'nozzle', 'silround', 'louver'].includes(type.id);
