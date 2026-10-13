@@ -398,8 +398,9 @@ function teeWall(p, s, L, angs) {
   }
   const n = ring.length, pos = [], idx = [];
   for (let r = 0; r <= nz; r++) ring.forEach(([x, y]) => pos.push(x, y, -L / 2 + L * r / nz));
-  const s2 = shapeOf(p, '2', 's2'), inv = angs.map(a => new THREE.Matrix4().copy(teeFrame(p, a)).invert());
-  const inHole = (x, y, z) => inv.some(m => {
+  const s2 = shapeOf(p, '2', 's2'), inv = angs.map(a => ({ m: new THREE.Matrix4().copy(teeFrame(p, a)).invert(), sg: Math.sin(a) < 0 ? -1 : 1 }));   // отверстие только на стороне своего ответвления
+  const inHole = (x, y, z) => inv.some(({ m, sg }) => {
+    if (x * sg <= 0) return false;
     const q = new THREE.Vector3(x, y, z).applyMatrix4(m);
     return s2.t === 'round' ? q.x * q.x + q.y * q.y < (s2.d / 2 * 0.93) ** 2 : Math.abs(q.x) < s2.a / 2 * 0.93 && Math.abs(q.y) < s2.b / 2 * 0.93;
   });
